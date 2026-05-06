@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxy Gateway</title>
+<style>
+:root {
+  --bg: #0f1117; --bg2: #1a1d27; --bg3: #232637;
+  --accent: #6c8ef5; --accent2: #4f6de0;
+  --green: #34d399; --red: #f87171; --yellow: #fbbf24; --orange: #fb923c;
+  --text: #e2e8f0; --muted: #64748b; --border: #2d3148;
+  --radius: 10px; --trans: 0.2s ease;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+/* ── Login ── */
+#login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px; width: 360px; }
+.login-card h1 { font-size: 22px; margin-bottom: 6px; color: var(--accent); }
+.login-card p { color: var(--muted); margin-bottom: 28px; font-size: 13px; }
+.logo { width: 48px; height: 48px; background: var(--accent); border-radius: 12px;
+        display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+        font-size: 24px; }
+
+/* ── App shell ── */
+#app-screen { display: flex; height: 100vh; }
+nav { width: 220px; background: var(--bg2); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0; }
+.nav-logo { padding: 20px; display: flex; align-items: center; gap: 10px;
+            border-bottom: 1px solid var(--border); }
+.nav-logo .icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px;
+                  display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.nav-logo span { font-weight: 600; font-size: 15px; }
+.nav-links { flex: 1; padding: 12px 0; overflow-y: auto; }
+.nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+            color: var(--muted); cursor: pointer; border-radius: 0; transition: var(--trans);
+            font-size: 13.5px; }
+.nav-link:hover { color: var(--text); background: var(--bg3); }
+.nav-link.active { color: var(--accent); background: rgba(108,142,245,0.1);
+                   border-right: 2px solid var(--accent); }
+.nav-link .ico { width: 18px; text-align: center; font-size: 16px; }
+.nav-sep { border: none; border-top: 1px solid var(--border); margin: 6px 16px; }
+.nav-bottom { padding: 16px; border-top: 1px solid var(--border); }
+
+main { flex: 1; overflow-y: auto; padding: 28px 32px; }
+.page { display: none; }
+.page.active { display: block; }
+h2 { font-size: 20px; margin-bottom: 6px; }
+.page-desc { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+/* ── Cards ── */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+              letter-spacing: 0.5px; margin-bottom: 14px; }
+
+/* ── Status indicators ── */
+.status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+             padding: 18px; }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+              margin-bottom: 8px; }
+.stat-value { font-size: 24px; font-weight: 600; }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot-red { background: var(--red); }
+.dot-yellow { background: var(--yellow); animation: pulse 1.5s infinite; }
+.dot-gray { background: var(--muted); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.badge { display: inline-flex; align-items: center; font-size: 12px; padding: 3px 10px;
+         border-radius: 20px; font-weight: 500; }
+.badge-green { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+.badge-red { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+.badge-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+.badge-gray { background: rgba(100,116,139,0.15); color: var(--muted); border: 1px solid rgba(100,116,139,0.3); }
+
+/* ── Forms ── */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px;
+               font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
+input[type=text], input[type=password], textarea, select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 9px 12px; font-size: 14px; outline: none; transition: var(--trans);
+  font-family: inherit; }
+input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,142,245,0.2); }
+textarea { resize: vertical; min-height: 90px; font-family: 'SF Mono', monospace; font-size: 12px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border: none;
+       border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;
+       transition: var(--trans); text-decoration: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg); }
+.btn-danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+.btn-danger:hover { background: rgba(248,113,113,0.25); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* ── Profile selector ── */
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.profile-option { border: 2px solid var(--border); border-radius: var(--radius); padding: 16px;
+                  cursor: pointer; transition: var(--trans); }
+.profile-option:hover { border-color: var(--accent); background: rgba(108,142,245,0.05); }
+.profile-option.selected { border-color: var(--accent); background: rgba(108,142,245,0.1); }
+.profile-option h4 { font-size: 14px; margin-bottom: 6px; }
+.profile-option p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.profile-option .check { float: right; color: var(--accent); font-size: 18px; display: none; }
+.profile-option.selected .check { display: inline; }
+
+/* ── Log viewer ── */
+#log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+           padding: 12px; font-family: 'SF Mono', 'Consolas', monospace; font-size: 11.5px;
+           line-height: 1.6; height: 400px; overflow-y: auto; white-space: pre-wrap;
+           word-break: break-all; color: #94a3b8; }
+.log-err { color: var(--red); }
+.log-warn { color: var(--yellow); }
+.log-info { color: var(--text); }
+
+/* ── Tabs ── */
+.tab-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 18px;
+       cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 500;
+       transition: var(--trans); margin-bottom: -1px; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Connection table ── */
+.conn-table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+table.conn-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.conn-table th { color: var(--muted); font-weight: 500; padding: 6px 10px; text-align: left;
+                 border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase;
+                 white-space: nowrap; position: sticky; top: 0; background: var(--bg2); z-index: 1; }
+.conn-table td { padding: 5px 10px; border-bottom: 1px solid rgba(45,49,72,0.4);
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn-table tr:hover td { background: var(--bg3); }
+.route-proxy { color: var(--accent); font-weight: 500; }
+.route-direct { color: var(--muted); }
+.route-block { color: var(--red); }
+.col-time { width: 130px; }
+.col-src  { width: 140px; }
+.col-dst  { width: auto; }
+.col-proto{ width: 60px; }
+.col-route{ width: 90px; }
+
+/* ── Resource monitor ── */
+.cpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.cpu-core { background: var(--bg3); border-radius: 8px; padding: 10px 12px; }
+.cpu-core-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.cpu-core-pct { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: var(--accent); }
+.res-bar-bg { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.res-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease, background 0.3s; }
+.res-bar.cpu { background: var(--accent); }
+.res-bar.mem { background: var(--green); }
+.res-bar.disk { background: var(--orange); }
+
+.res-item { margin-bottom: 10px; }
+.res-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted);
+              margin-bottom: 5px; }
+.res-header .res-pct { font-weight: 600; color: var(--text); }
+
+/* ── Speed bar ── */
+.speed-row { display: flex; gap: 24px; }
+.speed-item { flex: 1; }
+.speed-bar-bg { height: 4px; background: var(--bg3); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.speed-bar { height: 100%; border-radius: 2px; transition: width 0.8s ease; width: 0%; }
+.speed-bar.rx { background: var(--green); }
+.speed-bar.tx { background: var(--accent); }
+
+/* ── Router guide ── */
+.guide-steps { list-style: none; }
+.guide-step { display: flex; gap: 16px; margin-bottom: 22px; }
+.guide-num { width: 30px; height: 30px; min-width: 30px; background: var(--accent); color: #fff;
+             border-radius: 50%; display: flex; align-items: center; justify-content: center;
+             font-weight: 700; font-size: 13px; margin-top: 2px; }
+.guide-body h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.guide-body p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.guide-code { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+              padding: 9px 14px; font-family: 'SF Mono', monospace; font-size: 14px;
+              color: var(--green); margin-top: 8px; letter-spacing: 0.5px; }
+.guide-note { background: rgba(108,142,245,0.07); border: 1px solid rgba(108,142,245,0.2);
+              border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--text);
+              margin-top: 8px; line-height: 1.6; }
+.guide-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+/* ── Toast ── */
+#toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2);
+         border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px;
+         font-size: 13px; transition: var(--trans); opacity: 0; pointer-events: none;
+         max-width: 320px; z-index: 1000; }
+#toast.show { opacity: 1; }
+#toast.ok { border-color: var(--green); color: var(--green); }
+#toast.err { border-color: var(--red); color: var(--red); }
+
+/* ── Misc ── */
+.sep { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+.text-muted { color: var(--muted); }
+.text-green { color: var(--green); }
+.text-red { color: var(--red); }
+.monospace { font-family: 'SF Mono', monospace; font-size: 13px; }
+.mb-0 { margin-bottom: 0; }
+.mt-4 { margin-top: 16px; }
+.info-row { display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid var(--border); }
+.info-row:last-child { border-bottom: none; }
+.info-key { color: var(--muted); font-size: 12px; }
+.info-val { font-size: 13px; font-weight: 500; }
+input[type="file"] { display: none; }
+.file-drop { border: 2px dashed var(--border); border-radius: var(--radius); padding: 24px;
+             text-align: center; color: var(--muted); cursor: pointer; transition: var(--trans); }
+.file-drop:hover { border-color: var(--accent); color: var(--text); }
+code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN ─────────────────────────────────────────────────────────────── -->
+<div id="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="logo">🛡️</div>
+    <h1>Proxy Gateway</h1>
+    <p>Управление шлюзом</p>
+    <div class="field"><label>Логин</label>
+      <input id="l-user" type="text" value="admin" autocomplete="username"></div>
+    <div class="field"><label>Пароль</label>
+      <input id="l-pass" type="password" value="admin" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div id="l-err" style="color:var(--red);font-size:13px;margin-bottom:12px;display:none"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Войти →</button>
+  </div>
+</div>
+
+<!-- ─── APP ───────────────────────────────────────────────────────────────── -->
+<div id="app-screen" style="display:none">
+  <nav>
+    <div class="nav-logo">
+      <div class="icon">🛡️</div>
+      <span>Proxy Gateway</span>
+    </div>
+    <div class="nav-links">
+      <div class="nav-link active" onclick="showPage('dashboard',this)">
+        <span class="ico">📊</span> Панель управления</div>
+      <div class="nav-link" onclick="showPage('vpn',this)">
+        <span class="ico">🔑</span> VPN ключ</div>
+      <div class="nav-link" onclick="showPage('profile',this)">
+        <span class="ico">🗺️</span> Профиль маршрутов</div>
+      <div class="nav-link" onclick="showPage('geo',this)">
+        <span class="ico">🌍</span> Гео-базы</div>
+      <hr class="nav-sep">
+      <div class="nav-link" onclick="showPage('logs',this)">
+        <span class="ico">📋</span> Логи</div>
+      <div class="nav-link" onclick="showPage('system',this)">
+        <span class="ico">💻</span> Ресурсы системы</div>
+      <div class="nav-link" onclick="showPage('router',this)">
+        <span class="ico">🌐</span> Настройка роутера</div>
+      <hr class="nav-sep">
+      <div class="nav-link" onclick="showPage('settings',this)">
+        <span class="ico">⚙️</span> Настройки</div>
+    </div>
+    <div class="nav-bottom">
+      <button class="btn btn-secondary btn-sm" style="width:100%" onclick="doLogout()">
+        Выйти</button>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ── DASHBOARD ──────────────────────────────────────────────────────── -->
+    <div id="page-dashboard" class="page active">
+      <h2>Панель управления</h2>
+      <p class="page-desc">Статус шлюза в реальном времени</p>
+
+      <div class="status-grid">
+        <div class="stat-card">
+          <div class="stat-label">Состояние VPN</div>
+          <div id="s-state" class="stat-value" style="font-size:16px;padding:4px 0">
+            <span class="dot dot-gray"></span> Загрузка…</div>
+          <div id="s-server" class="stat-sub"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Адрес шлюза</div>
+          <div id="s-gw" class="stat-value monospace" style="font-size:18px">—</div>
+          <div class="stat-sub">LAN IP устройства</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Профиль</div>
+          <div id="s-profile" class="stat-value" style="font-size:15px">—</div>
+          <div class="stat-sub">Режим маршрутизации</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Гео-базы</div>
+          <div id="s-geo" class="stat-value" style="font-size:13px;padding-top:6px">—</div>
+          <div class="stat-sub">Дата обновления</div>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-title">Скорость передачи данных</div>
+        <div class="speed-row">
+          <div class="speed-item">
+            <div class="text-muted" style="font-size:11px;margin-bottom:4px">↓ ВХОДЯЩИЙ</div>
+            <div id="rx-val" style="font-size:20px;font-weight:600" class="text-green">—</div>
+            <div class="speed-bar-bg"><div id="rx-bar" class="speed-bar rx"></div></div>
+          </div>
+          <div class="speed-item">
+            <div class="text-muted" style="font-size:11px;margin-bottom:4px">↑ ИСХОДЯЩИЙ</div>
+            <div id="tx-val" style="font-size:20px;font-weight:600;color:var(--accent)">—</div>
+            <div class="speed-bar-bg"><div id="tx-bar" class="speed-bar tx"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VPN KEY ────────────────────────────────────────────────────────── -->
+    <div id="page-vpn" class="page">
+      <h2>VPN ключ</h2>
+      <p class="page-desc">Вставьте ключ из буфера обмена или загрузите файл конфигурации</p>
+
+      <div class="card">
+        <div class="card-title">Текущий ключ</div>
+        <div id="cur-key-info" class="info-row" style="border:none;padding:0 0 12px 0"></div>
+        <hr class="sep">
+        <div class="field"><label>Вставить ключ (ss://, vless://, vmess://, trojan://)</label>
+          <textarea id="key-input" placeholder="ss://… или vless://… или vmess://… или trojan://…"
+                    rows="4"></textarea></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="pasteKey()">📋 Вставить из буфера</button>
+          <button class="btn btn-primary" onclick="applyKey()">✓ Применить ключ</button>
+          <label class="btn btn-secondary" for="key-file">📁 Загрузить файл</label>
+          <input type="file" id="key-file" accept=".json,.txt,.conf" onchange="loadKeyFile(this)">
+          <button class="btn btn-danger" onclick="deleteKey()">✕ Удалить ключ</button>
+        </div>
+        <div id="key-result" class="mt-4" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ── PROFILE ────────────────────────────────────────────────────────── -->
+    <div id="page-profile" class="page">
+      <h2>Профиль маршрутов</h2>
+      <p class="page-desc">Выберите режим маршрутизации трафика</p>
+
+      <div class="card">
+        <div class="profile-grid">
+          <div class="profile-option" id="p-blocked_only" onclick="selectProfile('blocked_only')">
+            <span class="check">✓</span>
+            <h4>🇷🇺 Только заблокированное</h4>
+            <p>Заблокированные в РФ сайты — через VPN.<br>
+               Российские и незаблокированные — напрямую.</p>
+          </div>
+          <div class="profile-option" id="p-all_except_ru" onclick="selectProfile('all_except_ru')">
+            <span class="check">✓</span>
+            <h4>🌐 Всё кроме России</h4>
+            <p>Иностранные сайты — через VPN.<br>
+               Российские IP и домены — напрямую.</p>
+          </div>
+          <div class="profile-option" id="p-all" onclick="selectProfile('all')">
+            <span class="check">✓</span>
+            <h4>🔒 Весь трафик</h4>
+            <p>Весь трафик идёт через VPN<br>(кроме локальной сети).</p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" onclick="applyProfile()">✓ Применить профиль</button>
+          <span id="profile-result" class="text-muted" style="margin-left:12px;font-size:13px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GEO ────────────────────────────────────────────────────────────── -->
+    <div id="page-geo" class="page">
+      <h2>Гео-базы</h2>
+      <p class="page-desc">Файлы geoip.dat и geosite.dat (runetfreedom)</p>
+
+      <div class="card">
+        <div class="info-row">
+          <span class="info-key">Последнее обновление</span>
+          <span id="geo-date" class="info-val">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">geoip.dat</span>
+          <span id="geo-ip-size" class="info-val monospace">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">geosite.dat</span>
+          <span id="geo-site-size" class="info-val monospace">—</span>
+        </div>
+        <div class="mt-4">
+          <button class="btn btn-primary" id="geo-btn" onclick="updateGeo()">
+            🔄 Обновить сейчас</button>
+          <div id="geo-result" class="mt-4" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOGS ───────────────────────────────────────────────────────────── -->
+    <div id="page-logs" class="page">
+      <h2>Логи</h2>
+      <p class="page-desc">Системный журнал сервиса и таблица сетевых соединений</p>
+
+      <div class="tab-bar">
+        <button class="tab active" id="tab-syslog" onclick="switchLogTab('syslog')">
+          📋 Системный журнал</button>
+        <button class="tab" id="tab-connections" onclick="switchLogTab('connections')">
+          🌐 Соединения</button>
+      </div>
+
+      <!-- System log tab -->
+      <div id="logtab-syslog" class="card">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="loadLogs()">🔄 Обновить</button>
+          <button class="btn btn-secondary btn-sm" id="stream-btn" onclick="toggleStream()">
+            ▶ Live</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyLogs()">📋 Копировать</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearLogs()">✕ Очистить</button>
+        </div>
+        <div id="log-box"></div>
+      </div>
+
+      <!-- Connections tab -->
+      <div id="logtab-connections" class="card" style="display:none">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="loadConnections()">🔄 Обновить</button>
+          <button class="btn btn-secondary btn-sm" id="conn-stream-btn" onclick="toggleConnStream()">
+            ▶ Live</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearConns()">✕ Очистить</button>
+          <span id="conn-count" class="text-muted" style="font-size:12px;margin-left:6px"></span>
+        </div>
+        <div class="conn-table-wrap">
+          <table class="conn-table">
+            <thead>
+              <tr>
+                <th class="col-time">Время</th>
+                <th class="col-src">Источник</th>
+                <th class="col-dst">Назначение</th>
+                <th class="col-proto">Прот.</th>
+                <th class="col-route">Маршрут</th>
+              </tr>
+            </thead>
+            <tbody id="conn-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">
+                Нажмите «Обновить» или «Live» для загрузки соединений.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SYSTEM MONITOR ─────────────────────────────────────────────────── -->
+    <div id="page-system" class="page">
+      <h2>Ресурсы системы</h2>
+      <p class="page-desc">Мониторинг CPU, памяти, диска и сети в реальном времени</p>
+
+      <div class="card">
+        <div class="card-title">Процессор — нагрузка по ядрам</div>
+        <div id="cpu-cores" class="cpu-grid">
+          <div class="text-muted" style="font-size:12px">Загрузка…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Оперативная память</div>
+        <div class="res-item">
+          <div class="res-header">
+            <span id="mem-label" class="text-muted">—</span>
+            <span id="mem-pct" class="res-pct">—</span>
+          </div>
+          <div class="res-bar-bg" style="height:8px;border-radius:4px">
+            <div id="mem-bar" class="res-bar mem" style="width:0%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Диск (корневой раздел /)</div>
+        <div class="res-item">
+          <div class="res-header">
+            <span id="disk-label" class="text-muted">—</span>
+            <span id="disk-pct" class="res-pct">—</span>
+          </div>
+          <div class="res-bar-bg" style="height:8px;border-radius:4px">
+            <div id="disk-bar" class="res-bar disk" style="width:0%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Сеть (LAN интерфейс)</div>
+        <div class="speed-row">
+          <div class="speed-item">
+            <div class="text-muted" style="font-size:11px;margin-bottom:4px">↓ ВХОДЯЩИЙ</div>
+            <div id="sys-rx-val" style="font-size:20px;font-weight:600" class="text-green">—</div>
+            <div class="speed-bar-bg"><div id="sys-rx-bar" class="speed-bar rx"></div></div>
+          </div>
+          <div class="speed-item">
+            <div class="text-muted" style="font-size:11px;margin-bottom:4px">↑ ИСХОДЯЩИЙ</div>
+            <div id="sys-tx-val" style="font-size:20px;font-weight:600;color:var(--accent)">—</div>
+            <div class="speed-bar-bg"><div id="sys-tx-bar" class="speed-bar tx"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROUTER GUIDE ───────────────────────────────────────────────────── -->
+    <div id="page-router" class="page">
+      <h2>Настройка роутера</h2>
+      <p class="page-desc">Как прописать шлюз в DHCP-настройках роутера для всей сети</p>
+
+      <!-- Quick reference card -->
+      <div class="card" style="border-color:rgba(108,142,245,0.4)">
+        <div class="card-title">Что прописать в роутер</div>
+        <div class="info-row">
+          <span class="info-key">Default Gateway (основной шлюз)</span>
+          <span id="router-gw" class="info-val monospace text-green" style="font-size:16px">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Primary DNS (первичный DNS)</span>
+          <span id="router-dns" class="info-val monospace text-green" style="font-size:16px">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Адрес веб-интерфейса роутера</span>
+          <span id="router-ui-url" class="info-val monospace">—</span>
+        </div>
+        <div class="guide-note" style="margin-top:12px">
+          ℹ️ Оба поля (<strong>Gateway</strong> и <strong>DNS</strong>) должны содержать
+          <strong>один и тот же IP-адрес шлюза</strong>. После сохранения переподключите устройства к Wi-Fi.
+        </div>
+      </div>
+
+      <!-- Step by step -->
+      <div class="card">
+        <div class="card-title">Пошаговая инструкция</div>
+
+        <div class="guide-step">
+          <div class="guide-num">1</div>
+          <div class="guide-body">
+            <h4>Откройте веб-интерфейс роутера</h4>
+            <p>В браузере на любом устройстве откройте адрес роутера.
+               Обычно это <code>192.168.1.1</code> или <code>192.168.0.1</code> (зависит от модели).</p>
+            <div class="guide-code" id="router-open-url">http://192.168.1.1</div>
+            <div class="guide-note">💡 Если не знаете адрес роутера — на вашем компьютере в сетевых настройках посмотрите поле «Основной шлюз» / «Default Gateway».</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-num">2</div>
+          <div class="guide-body">
+            <h4>Войдите в настройки роутера</h4>
+            <p>Введите логин и пароль роутера. Стандартные значения: <code>admin / admin</code>
+               или <code>admin / пусто</code>. Обычно написаны на наклейке снизу устройства.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-num">3</div>
+          <div class="guide-body">
+            <h4>Найдите раздел настроек DHCP</h4>
+            <p>Раздел может называться по-разному в зависимости от производителя:</p>
+            <div class="guide-tags">
+              <span class="badge badge-gray">LAN → DHCP Server</span>
+              <span class="badge badge-gray">Сеть → DHCP</span>
+              <span class="badge badge-gray">Advanced → LAN Setup</span>
+              <span class="badge badge-gray">Network → LAN</span>
+              <span class="badge badge-gray">Home Network → DHCP</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-num">4</div>
+          <div class="guide-body">
+            <h4>Установите Default Gateway</h4>
+            <p>Найдите поле <strong>Default Gateway</strong> (или «Основной шлюз», «Router») и введите:</p>
+            <div class="guide-code" id="router-set-gw">192.168.50.2</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-num">5</div>
+          <div class="guide-body">
+            <h4>Установите Primary DNS</h4>
+            <p>Найдите поле <strong>Primary DNS</strong> (или «Предпочитаемый DNS», «DNS Server 1»)
+               и введите тот же IP:</p>
+            <div class="guide-code" id="router-set-dns">192.168.50.2</div>
+            <div class="guide-note">⚠️ Secondary DNS можно оставить пустым или указать <code>9.9.9.9</code> как запасной на случай недоступности шлюза.</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-num">6</div>
+          <div class="guide-body">
+            <h4>Сохраните и примените настройки</h4>
+            <p>Нажмите <strong>Save</strong> / <strong>Apply</strong> / <strong>Сохранить</strong>.
+               Роутер может перезагрузиться — подождите 30–60 секунд.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-num">7</div>
+          <div class="guide-body">
+            <h4>Переподключите устройства</h4>
+            <p>Устройства получат новые параметры сети (шлюз и DNS) при следующем обновлении
+               DHCP-аренды. Для немедленного применения:</p>
+            <div class="guide-tags" style="flex-direction:column;gap:4px">
+              <span style="font-size:12px;color:var(--muted)">📱 <strong>Телефоны/планшеты:</strong> отключитесь от Wi-Fi и подключитесь снова</span>
+              <span style="font-size:12px;color:var(--muted)">💻 <strong>Windows:</strong> <code>ipconfig /renew</code> в командной строке</span>
+              <span style="font-size:12px;color:var(--muted)">🍎 <strong>macOS:</strong> выключите Wi-Fi на 5 секунд, затем включите</span>
+              <span style="font-size:12px;color:var(--muted)">🐧 <strong>Linux:</strong> <code>sudo dhclient -r && sudo dhclient</code></span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:rgba(52,211,153,0.07);border:1px solid rgba(52,211,153,0.2);border-radius:8px;padding:16px;margin-top:4px">
+          <h4 style="color:var(--green);margin-bottom:8px">✓ Как проверить</h4>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6">
+            После переподключения откройте любой заблокированный сайт (YouTube, Instagram и т.д.).
+            Если работает — шлюз настроен верно.<br><br>
+            Текущий внешний IP можно узнать на:
+            <a href="https://api.ipify.org" target="_blank" style="color:var(--accent)">api.ipify.org</a>
+            или
+            <a href="https://2ip.ru" target="_blank" style="color:var(--accent)">2ip.ru</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ───────────────────────────────────────────────────────── -->
+    <div id="page-settings" class="page">
+      <h2>Настройки</h2>
+      <p class="page-desc">Экспорт/импорт конфигурации, безопасность, сброс</p>
+
+      <div class="card">
+        <div class="card-title">Резервная копия</div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="exportSettings()">💾 Экспортировать в файл</button>
+          <label class="btn btn-secondary" for="import-file">📂 Импортировать из файла</label>
+          <input type="file" id="import-file" accept=".tar.gz,.tgz" onchange="importSettings(this)">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Смена пароля</div>
+        <div class="field"><label>Текущий пароль</label>
+          <input id="pw-cur" type="password" autocomplete="current-password"></div>
+        <div class="field"><label>Новый пароль</label>
+          <input id="pw-new" type="password" autocomplete="new-password"></div>
+        <div class="field mb-0"><label>Повторите новый пароль</label>
+          <input id="pw-new2" type="password" autocomplete="new-password"></div>
+        <div class="mt-4">
+          <button class="btn btn-primary" onclick="changePw()">Сменить пароль</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Сброс к заводским настройкам</div>
+        <p class="text-muted" style="font-size:13px;margin-bottom:14px">
+          Удаляет VPN ключ и сбрасывает все настройки. Пароль сбрасывается на <code>admin</code>.</p>
+        <button class="btn btn-danger" onclick="factoryReset()">
+          ⚠️ Сбросить настройки</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────
+let currentProfile = 'all_except_ru';
+let logStreamES = null;
+let speedES = null;
+let speedMax = { rx: 1e6, tx: 1e6 };
+let sysinfoES = null;
+let sysinfoSpeedMax = { rx: 1e6, tx: 1e6 };
+let connStreamES = null;
+let connStreaming = false;
+let currentLogTab = 'syslog';
+const MAX_CONN_ROWS = 500;
+
+// ─── API helpers ───────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body instanceof FormData) {
+    opts.body = body;
+  } else if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  if (r.status === 401) { showLogin(); return null; }
+  return r;
+}
+async function apiJ(method, path, body) {
+  const r = await api(method, path, body);
+  return r ? r.json() : null;
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (ok ? 'ok' : 'err');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.className = '', 3500);
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  startUpdates();
+}
+
+async function doLogin() {
+  const username = document.getElementById('l-user').value;
+  const password = document.getElementById('l-pass').value;
+  const err = document.getElementById('l-err');
+  err.style.display = 'none';
+  const r = await apiJ('POST', '/api/login', { username, password });
+  if (r && r.ok) { showApp(); }
+  else { err.textContent = 'Неверный логин или пароль'; err.style.display = 'block'; }
+}
+async function doLogout() {
+  await api('POST', '/api/logout');
+  stopUpdates(); showLogin();
+}
+
+// ─── Navigation ─────────────────────────────────────────────────────────────
+function showPage(name, linkEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (linkEl) linkEl.classList.add('active');
+
+  if (name === 'logs') { loadLogs(); if (currentLogTab === 'connections') loadConnections(); }
+  if (name === 'geo') loadGeoInfo();
+  if (name === 'system') startSysinfoStream(); else stopSysinfoStream();
+}
+
+// ─── Status updates ─────────────────────────────────────────────────────────
+const PROFILE_LABELS = {
+  blocked_only: 'Только заблокированное',
+  all_except_ru: 'Всё кроме России',
+  all: 'Весь трафик',
+};
+const STATE_HTML = {
+  connected:  '<span class="dot dot-green"></span> Подключено',
+  connecting: '<span class="dot dot-yellow"></span> Подключение…',
+  error:      '<span class="dot dot-red"></span> Ошибка',
+  stopped:    '<span class="dot dot-gray"></span> Остановлено',
+  no_key:     '<span class="dot dot-gray"></span> Ключ не задан',
+};
+
+async function refreshStatus() {
+  const d = await apiJ('GET', '/api/status');
+  if (!d) return;
+  document.getElementById('s-state').innerHTML = STATE_HTML[d.state] || d.state;
+  document.getElementById('s-gw').textContent = d.gateway_ip || '—';
+  document.getElementById('s-profile').textContent = PROFILE_LABELS[d.profile] || d.profile;
+  document.getElementById('s-geo').textContent = d.geo_updated || 'Никогда';
+  document.getElementById('s-server').textContent =
+    d.vpn ? `${d.vpn.protocol} · ${d.vpn.server}:${d.vpn.port}` : '';
+  currentProfile = d.profile;
+  updateProfileUI(d.profile);
+
+  // Key info on vpn page
+  const ki = document.getElementById('cur-key-info');
+  if (d.vpn) {
+    ki.innerHTML = `<span class="info-key">Активный ключ</span>
+      <span class="info-val"><span class="badge badge-green">${d.vpn.protocol}</span>
+      &nbsp;${d.vpn.name}</span>`;
+  } else {
+    ki.innerHTML = '<span class="text-muted">Ключ не задан</span>';
+  }
+
+  // Router guide dynamic IPs
+  const gw = d.gateway_ip || '';
+  if (gw && gw !== '?') {
+    ['router-gw','router-dns','router-set-gw','router-set-dns'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = gw;
+    });
+    const routerIp = gw.replace(/\.\d+$/, '.1');
+    ['router-open-url','router-ui-url'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = `http://${routerIp}`;
+    });
+  }
+}
+
+function startUpdates() {
+  refreshStatus();
+  window._statusInterval = setInterval(refreshStatus, 5000);
+  startSpeedStream();
+}
+function stopUpdates() {
+  clearInterval(window._statusInterval);
+  if (speedES) { speedES.close(); speedES = null; }
+  if (logStreamES) { logStreamES.close(); logStreamES = null; }
+  stopSysinfoStream();
+  if (connStreamES) { connStreamES.close(); connStreamES = null; }
+}
+
+// ─── Speed stream (dashboard) ────────────────────────────────────────────────
+function startSpeedStream() {
+  if (speedES) speedES.close();
+  speedES = new EventSource('/api/speed-stream');
+  speedES.onmessage = e => {
+    const d = JSON.parse(e.data);
+    const rx = d.rx_bps, tx = d.tx_bps;
+    speedMax.rx = Math.max(speedMax.rx, rx, 1e5);
+    speedMax.tx = Math.max(speedMax.tx, tx, 1e5);
+    document.getElementById('rx-val').textContent = fmtSpeed(rx);
+    document.getElementById('tx-val').textContent = fmtSpeed(tx);
+    document.getElementById('rx-bar').style.width = (rx / speedMax.rx * 100) + '%';
+    document.getElementById('tx-bar').style.width = (tx / speedMax.tx * 100) + '%';
+  };
+  speedES.onerror = () => setTimeout(startSpeedStream, 3000);
+}
+
+function fmtSpeed(bps) {
+  if (bps < 1024) return bps.toFixed(0) + ' B/s';
+  if (bps < 1024*1024) return (bps/1024).toFixed(1) + ' KB/s';
+  return (bps/1024/1024).toFixed(2) + ' MB/s';
+}
+
+function fmtBytes(b) {
+  if (!b || b <= 0) return '0 B';
+  const k = 1024, sz = ['B','KB','MB','GB','TB'];
+  const i = Math.min(Math.floor(Math.log(b) / Math.log(k)), sz.length - 1);
+  return (b / Math.pow(k, i)).toFixed(i > 1 ? 1 : 0) + ' ' + sz[i];
+}
+
+// ─── System monitor ──────────────────────────────────────────────────────────
+function startSysinfoStream() {
+  if (sysinfoES) sysinfoES.close();
+  sysinfoES = new EventSource('/api/sysinfo-stream');
+  sysinfoES.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.cpu) updateCpuUI(d.cpu);
+    if (d.mem) updateMemUI(d.mem);
+    if (d.disk) updateDiskUI(d.disk);
+    if (d.net) updateSysNetUI(d.net);
+  };
+  sysinfoES.onerror = () => {
+    if (sysinfoES) setTimeout(startSysinfoStream, 3000);
+  };
+}
+function stopSysinfoStream() {
+  if (sysinfoES) { sysinfoES.close(); sysinfoES = null; }
+}
+
+function updateCpuUI(cpus) {
+  if (!cpus.length) return;
+  const grid = document.getElementById('cpu-cores');
+  if (!grid) return;
+  // Rebuild grid if core count changed
+  if (grid.dataset.cores !== String(cpus.length)) {
+    grid.dataset.cores = cpus.length;
+    grid.innerHTML = cpus.map((_, i) => `
+      <div class="cpu-core">
+        <div class="cpu-core-label">CPU ${i}</div>
+        <div class="cpu-core-pct" id="cpu-pct-${i}" style="color:var(--accent)">0%</div>
+        <div class="res-bar-bg"><div id="cpu-bar-${i}" class="res-bar cpu" style="width:0%"></div></div>
+      </div>`).join('');
+  }
+  cpus.forEach((pct, i) => {
+    const p = document.getElementById(`cpu-pct-${i}`);
+    const b = document.getElementById(`cpu-bar-${i}`);
+    if (p) { p.textContent = pct.toFixed(1) + '%'; }
+    if (b) {
+      b.style.width = pct + '%';
+      b.style.background = pct > 80 ? 'var(--red)' : pct > 50 ? 'var(--yellow)' : 'var(--accent)';
+    }
+    if (p) p.style.color = pct > 80 ? 'var(--red)' : pct > 50 ? 'var(--yellow)' : 'var(--accent)';
+  });
+}
+
+function updateMemUI(mem) {
+  if (!mem.total) return;
+  const pct = Math.min(100, Math.round(mem.used / mem.total * 100));
+  const lbl = document.getElementById('mem-label');
+  if (lbl) lbl.textContent = `${fmtBytes(mem.used)} используется из ${fmtBytes(mem.total)}`;
+  const pctEl = document.getElementById('mem-pct');
+  if (pctEl) pctEl.textContent = pct + '%';
+  const bar = document.getElementById('mem-bar');
+  if (bar) {
+    bar.style.width = pct + '%';
+    bar.style.background = pct > 90 ? 'var(--red)' : pct > 75 ? 'var(--yellow)' : 'var(--green)';
+  }
+}
+
+function updateDiskUI(disk) {
+  if (!disk.total) return;
+  const pct = Math.min(100, Math.round(disk.used / disk.total * 100));
+  const lbl = document.getElementById('disk-label');
+  if (lbl) lbl.textContent = `${fmtBytes(disk.used)} используется из ${fmtBytes(disk.total)} (свободно: ${fmtBytes(disk.free)})`;
+  const pctEl = document.getElementById('disk-pct');
+  if (pctEl) pctEl.textContent = pct + '%';
+  const bar = document.getElementById('disk-bar');
+  if (bar) {
+    bar.style.width = pct + '%';
+    bar.style.background = pct > 90 ? 'var(--red)' : pct > 75 ? 'var(--yellow)' : 'var(--orange)';
+  }
+}
+
+function updateSysNetUI(net) {
+  const rx = net.rx_bps || 0, tx = net.tx_bps || 0;
+  sysinfoSpeedMax.rx = Math.max(sysinfoSpeedMax.rx, rx, 1e5);
+  sysinfoSpeedMax.tx = Math.max(sysinfoSpeedMax.tx, tx, 1e5);
+  const rxEl = document.getElementById('sys-rx-val');
+  if (rxEl) rxEl.textContent = fmtSpeed(rx);
+  const txEl = document.getElementById('sys-tx-val');
+  if (txEl) txEl.textContent = fmtSpeed(tx);
+  const rxBar = document.getElementById('sys-rx-bar');
+  if (rxBar) rxBar.style.width = (rx / sysinfoSpeedMax.rx * 100) + '%';
+  const txBar = document.getElementById('sys-tx-bar');
+  if (txBar) txBar.style.width = (tx / sysinfoSpeedMax.tx * 100) + '%';
+}
+
+// ─── VPN Key ────────────────────────────────────────────────────────────────
+async function pasteKey() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('key-input').value = text.trim();
+  } catch {
+    toast('Не удалось прочитать буфер обмена. Вставьте вручную (Ctrl+V / Cmd+V).', false);
+  }
+}
+
+async function applyKey() {
+  const key = document.getElementById('key-input').value.trim();
+  if (!key) { toast('Введите ключ', false); return; }
+  const r = await apiJ('POST', '/api/vpn-key', { key });
+  const box = document.getElementById('key-result');
+  box.style.display = 'block';
+  if (r && r.ok) {
+    box.innerHTML = `<span class="text-green">✓ Ключ применён: ${r.vpn.protocol} · ${r.vpn.name}</span>`;
+    toast('VPN ключ применён'); refreshStatus();
+  } else {
+    box.innerHTML = `<span class="text-red">✕ ${r?.error || 'Ошибка'}</span>`;
+    toast(r?.error || 'Ошибка', false);
+  }
+}
+
+function loadKeyFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let text = e.target.result.trim();
+    try {
+      const j = JSON.parse(text);
+      if (j.method && j.password && j.server && j.server_port) {
+        text = `ss://${btoa(j.method+':'+j.password)}@${j.server}:${j.server_port}`;
+      } else if (j.servers) {
+        const s = j.servers[0];
+        text = `ss://${btoa(s.method+':'+s.password)}@${s.server}:${s.server_port}`;
+      }
+    } catch {}
+    document.getElementById('key-input').value = text;
+    toast('Файл загружен. Нажмите «Применить ключ».');
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+async function deleteKey() {
+  if (!confirm('Удалить VPN ключ?')) return;
+  const r = await apiJ('DELETE', '/api/vpn-key');
+  if (r?.ok) { toast('Ключ удалён'); refreshStatus(); }
+}
+
+// ─── Profile ─────────────────────────────────────────────────────────────────
+function updateProfileUI(profile) {
+  document.querySelectorAll('.profile-option').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('p-' + profile);
+  if (el) el.classList.add('selected');
+  currentProfile = profile;
+}
+function selectProfile(p) { updateProfileUI(p); }
+async function applyProfile() {
+  const r = await apiJ('POST', '/api/profile', { profile: currentProfile });
+  const s = document.getElementById('profile-result');
+  if (r?.ok) {
+    s.textContent = '✓ Применено'; s.className = 'text-green';
+    toast('Профиль применён'); refreshStatus();
+  } else {
+    s.textContent = '✕ Ошибка'; s.className = 'text-red';
+    toast(r?.error || 'Ошибка', false);
+  }
+  setTimeout(() => s.textContent = '', 4000);
+}
+
+// ─── Geo update ───────────────────────────────────────────────────────────────
+async function loadGeoInfo() {
+  const r = await apiJ('GET', '/api/geo-info');
+  if (!r) return;
+  document.getElementById('geo-date').textContent = r.geo_updated || 'Никогда';
+  document.getElementById('geo-ip-size').textContent = r.geoip_size || '—';
+  document.getElementById('geo-site-size').textContent = r.geosite_size || '—';
+}
+async function updateGeo() {
+  const btn = document.getElementById('geo-btn');
+  btn.disabled = true; btn.textContent = '⏳ Обновление…';
+  const box = document.getElementById('geo-result');
+  box.style.display = 'block';
+  box.innerHTML = '<span class="text-muted">Загрузка geoip.dat и geosite.dat…</span>';
+  const r = await apiJ('POST', '/api/geo-update');
+  if (r?.ok) {
+    box.innerHTML = `<span class="text-green">✓ Обновлено успешно</span><br>
+      <pre style="font-size:11px;color:var(--muted);margin-top:8px">${r.output||''}</pre>`;
+    toast('Гео-базы обновлены'); loadGeoInfo();
+  } else {
+    box.innerHTML = `<span class="text-red">✕ ${r?.error || 'Ошибка'}</span>`;
+    toast('Ошибка обновления', false);
+  }
+  btn.disabled = false; btn.textContent = '🔄 Обновить сейчас';
+}
+
+// ─── Log tabs ─────────────────────────────────────────────────────────────────
+function switchLogTab(tab) {
+  currentLogTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('logtab-syslog').style.display = tab === 'syslog' ? 'block' : 'none';
+  document.getElementById('logtab-connections').style.display = tab === 'connections' ? 'block' : 'none';
+  if (tab === 'connections') {
+    const tbody = document.getElementById('conn-tbody');
+    if (tbody && tbody.rows.length <= 1 && tbody.rows[0]?.cells.length <= 1) {
+      loadConnections();
+    }
+  }
+}
+
+// ─── System logs ──────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const r = await apiJ('GET', '/api/logs?n=300');
+  if (!r) return;
+  renderLogs(r.logs);
+}
+function renderLogs(text) {
+  const box = document.getElementById('log-box');
+  box.innerHTML = text.split('\n').map(line => {
+    if (!line) return '';
+    if (/error|ERR/i.test(line)) return `<div class="log-err">${escH(line)}</div>`;
+    if (/warn|WARN/i.test(line)) return `<div class="log-warn">${escH(line)}</div>`;
+    return `<div class="log-info">${escH(line)}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function clearLogs() { document.getElementById('log-box').innerHTML = ''; }
+function copyLogs() {
+  navigator.clipboard.writeText(document.getElementById('log-box').innerText)
+    .then(() => toast('Логи скопированы'))
+    .catch(() => toast('Не удалось скопировать', false));
+}
+let streaming = false;
+function toggleStream() {
+  const btn = document.getElementById('stream-btn');
+  if (streaming) {
+    if (logStreamES) { logStreamES.close(); logStreamES = null; }
+    streaming = false; btn.textContent = '▶ Live';
+  } else {
+    streaming = true; btn.textContent = '⏸ Стоп';
+    logStreamES = new EventSource('/api/logs/stream');
+    const box = document.getElementById('log-box');
+    logStreamES.onmessage = e => {
+      const line = JSON.parse(e.data);
+      const cls = /error|ERR/i.test(line) ? 'log-err' : /warn/i.test(line) ? 'log-warn' : 'log-info';
+      const div = document.createElement('div');
+      div.className = cls; div.textContent = line;
+      box.appendChild(div);
+      if (box.children.length > 1000) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    };
+    logStreamES.onerror = () => { streaming = false; btn.textContent = '▶ Live'; };
+  }
+}
+
+// ─── Connections ──────────────────────────────────────────────────────────────
+async function loadConnections() {
+  const r = await apiJ('GET', '/api/connections?n=200');
+  if (!r) return;
+  renderConnections(r.connections || []);
+}
+
+function connRowHtml(c) {
+  const cls = c.outbound === 'proxy' ? 'route-proxy' : c.outbound === 'block' ? 'route-block' : 'route-direct';
+  const label = c.outbound === 'proxy' ? '🔒 VPN' : c.outbound === 'block' ? '✕ Блок' : '→ Direct';
+  const ts = (c.ts || '').replace(/^\d{4}\//, '').replace('/', '-');
+  const dst = escH((c.dst || '') + ':' + (c.dport || ''));
+  return `<td style="color:var(--muted);font-size:11px">${escH(ts)}</td>
+    <td class="monospace" style="font-size:11px;color:var(--muted)">${escH(c.src || '')}</td>
+    <td class="monospace" style="font-size:11px" title="${dst}">${dst}</td>
+    <td><span class="badge badge-gray" style="padding:1px 6px">${escH(c.proto || '')}</span></td>
+    <td class="${cls}" style="font-size:12px">${label}</td>`;
+}
+
+function renderConnections(conns) {
+  const tbody = document.getElementById('conn-tbody');
+  if (!tbody) return;
+  const countEl = document.getElementById('conn-count');
+  if (!conns.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Нет соединений в логе xray. Убедитесь, что xray-proxy запущен.</td></tr>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  tbody.innerHTML = conns.map(c => `<tr>${connRowHtml(c)}</tr>`).join('');
+  if (countEl) countEl.textContent = `${conns.length} записей`;
+}
+
+function prependConnRow(c) {
+  const tbody = document.getElementById('conn-tbody');
+  if (!tbody) return;
+  // Clear placeholder row
+  if (tbody.rows.length === 1 && tbody.rows[0].cells[0]?.colSpan > 1) tbody.innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = connRowHtml(c);
+  tbody.insertBefore(tr, tbody.firstChild);
+  while (tbody.rows.length > MAX_CONN_ROWS) tbody.removeChild(tbody.lastChild);
+  const countEl = document.getElementById('conn-count');
+  if (countEl) countEl.textContent = `${tbody.rows.length} записей`;
+}
+
+function clearConns() {
+  const tbody = document.getElementById('conn-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Очищено.</td></tr>';
+  const countEl = document.getElementById('conn-count');
+  if (countEl) countEl.textContent = '';
+}
+
+function toggleConnStream() {
+  const btn = document.getElementById('conn-stream-btn');
+  if (connStreaming) {
+    if (connStreamES) { connStreamES.close(); connStreamES = null; }
+    connStreaming = false;
+    if (btn) btn.textContent = '▶ Live';
+  } else {
+    connStreaming = true;
+    if (btn) btn.textContent = '⏸ Стоп';
+    connStreamES = new EventSource('/api/connections/stream');
+    connStreamES.onmessage = e => {
+      const c = JSON.parse(e.data);
+      if (c) prependConnRow(c);
+    };
+    connStreamES.onerror = () => {
+      connStreaming = false;
+      if (btn) btn.textContent = '▶ Live';
+    };
+  }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+async function exportSettings() { window.location.href = '/api/settings/export'; }
+async function importSettings(input) {
+  const file = input.files[0]; if (!file) return;
+  if (!file.name.endsWith('.tar.gz') && !file.name.endsWith('.tgz')) {
+    toast('Ожидается файл .tar.gz', false); input.value = ''; return;
+  }
+  toast('Импорт…');
+  const fd = new FormData(); fd.append('file', file);
+  const r = await apiJ('POST', '/api/settings/import', fd);
+  if (r?.ok) {
+    const n = r.restored?.length ?? 0;
+    toast(`Восстановлено файлов: ${n}. Применяю конфигурацию…`);
+    setTimeout(refreshStatus, 3000);
+  } else toast(r?.error || 'Ошибка импорта', false);
+  input.value = '';
+}
+async function changePw() {
+  const cur = document.getElementById('pw-cur').value;
+  const nw = document.getElementById('pw-new').value;
+  const nw2 = document.getElementById('pw-new2').value;
+  if (!cur || !nw) { toast('Заполните поля', false); return; }
+  if (nw !== nw2) { toast('Пароли не совпадают', false); return; }
+  if (nw.length < 4) { toast('Пароль слишком короткий', false); return; }
+  const r = await apiJ('POST', '/api/change-password', { current: cur, new_pw: nw });
+  if (r?.ok) {
+    toast('Пароль изменён');
+    ['pw-cur','pw-new','pw-new2'].forEach(id => document.getElementById(id).value = '');
+  } else toast(r?.error || 'Ошибка', false);
+}
+async function factoryReset() {
+  if (!confirm('Сбросить все настройки к заводским? Это действие нельзя отменить.')) return;
+  const r = await apiJ('POST', '/api/factory-reset');
+  if (r?.ok) { toast('Настройки сброшены. Перезайдите.'); setTimeout(doLogout, 1500); }
+  else toast('Ошибка', false);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+(async () => {
+  const r = await apiJ('GET', '/api/auth-check');
+  if (r?.ok) showApp(); else showLogin();
+})();
+</script>
+</body>
+</html>

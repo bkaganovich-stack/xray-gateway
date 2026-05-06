@@ -1,0 +1,15 @@
+[Unit]
+Description=Xray Proxy Web Management Interface
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/xray-proxy/web
+ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 80 --log-level warning
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

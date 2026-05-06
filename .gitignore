@@ -1,0 +1,17 @@
+# Generated on install — never commit
+config/
+logs/
+.secret
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+web/__pycache__/
+
+# macOS
+.DS_Store
+
+# Archives
+*.tar.gz
+*.zip
