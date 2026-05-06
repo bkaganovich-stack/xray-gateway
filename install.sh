@@ -3,15 +3,15 @@
 # xray-gateway — Transparent Proxy Gateway Installer
 #
 # One-liner (recommended):
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB/xray-gateway/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/bkaganovich-stack/xray-gateway/main/install.sh | sudo bash
 #
 # Or clone and run:
-#   git clone https://github.com/YOUR_GITHUB/xray-gateway
+#   git clone https://github.com/bkaganovich-stack/xray-gateway
 #   cd xray-gateway && sudo bash install.sh
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-REPO_URL="https://github.com/YOUR_GITHUB/xray-gateway"
+REPO_URL="https://github.com/bkaganovich-stack/xray-gateway"
 INSTALL_DIR=/opt/xray-proxy
 NET_CONF="$INSTALL_DIR/config/network.conf"
 

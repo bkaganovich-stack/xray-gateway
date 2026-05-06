@@ -3,7 +3,7 @@
 # xray-gateway — Uninstaller
 #
 # One-liner:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB/xray-gateway/main/uninstall.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/bkaganovich-stack/xray-gateway/main/uninstall.sh | sudo bash
 #
 # Or locally:
 #   sudo bash uninstall.sh

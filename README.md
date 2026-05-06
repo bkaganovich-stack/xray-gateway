@@ -27,7 +27,7 @@ The gateway connects via a single Ethernet cable to your router. Your router's D
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB/xray-gateway/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/bkaganovich-stack/xray-gateway/main/install.sh | sudo bash
 ```
 
 That's it. The script:
@@ -72,7 +72,7 @@ Reconnect devices (or renew DHCP lease) to apply.
 ## Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB/xray-gateway/main/uninstall.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/bkaganovich-stack/xray-gateway/main/uninstall.sh | sudo bash
 ```
 
 Removes all files, services, and config. Prompts for confirmation first.
