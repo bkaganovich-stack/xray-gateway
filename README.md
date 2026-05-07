@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/bkaganovich-stack/xray-gateway/main
 That's it. The script:
 1. Auto-detects your network interface and router IP
 2. Downloads the latest xray-core binary from GitHub
-3. Downloads geo databases (Russia-aware routing rules)
+3. Downloads geo databases
 4. Sets up systemd services, dnsmasq, iptables TProxy rules
 5. Starts the web management UI on port 80
 
@@ -51,8 +51,8 @@ Open `http://<gateway-ip>` in your browser:
 
 | Profile | Description |
 |---------|-------------|
-| `all_except_ru` | All traffic via VPN, except Russian domains/IPs (direct) |
-| `blocked_only` | Only blocked sites via VPN, everything else direct |
+| `all_except_ru` | All traffic via VPN, except specific domains/IPs (direct) |
+| `blocked_only` | Only specific sites via VPN, everything else direct |
 | `all` | All traffic via VPN |
 
 3. Click **Apply**
