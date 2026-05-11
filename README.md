@@ -122,6 +122,6 @@ sudo bash /opt/xray-proxy/scripts/update-geo.sh
 ## Supported VPN protocols
 
 - **Shadowsocks** — `ss://`
-- **VLESS** — `vless://` (including Reality)
+- **VLESS** — `vless://`
 - **VMess** — `vmess://`
 - **Trojan** — `trojan://`
