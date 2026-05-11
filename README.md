@@ -67,7 +67,7 @@ In your router's DHCP settings:
 | Default Gateway | Gateway device IP |
 | DNS Server | Gateway device IP |
 
-Reconnect devices (or renew DHCP lease) to apply.
+Reconnect devices or renew DHCP lease to apply.
 
 ## Uninstall
 
