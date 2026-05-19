@@ -132,6 +132,11 @@ pm_update
 pm_install curl python3 python3-pip iptables "$IPROUTE_PKG" \
     dnsmasq ca-certificates unzip ${PY_VENV_PKG:+"$PY_VENV_PKG"}
 
+# On Fedora/RHEL install semanage so we can label port 5335 for dnsmasq (SELinux)
+if [[ "$PM" != "apt" ]]; then
+    pm_install policycoreutils-python-utils
+fi
+
 # ── 4. Python virtualenv + deps ───────────────────────────────────────────────
 step "Installing Python dependencies"
 python3 -m venv "$INSTALL_DIR/venv"
@@ -212,6 +217,16 @@ server=$ROUTER_IP
 no-resolv
 cache-size=1000
 DNSEOF
+
+# On SELinux systems (Fedora/RHEL) dnsmasq is only allowed on port 53 by default.
+# Label port 5335 as dns_port_t so dnsmasq can bind to it.
+if command -v semanage &>/dev/null; then
+    semanage port -a -t dns_port_t -p udp 5335 2>/dev/null \
+        || semanage port -m -t dns_port_t -p udp 5335 2>/dev/null || true
+    semanage port -a -t dns_port_t -p tcp 5335 2>/dev/null \
+        || semanage port -m -t dns_port_t -p tcp 5335 2>/dev/null || true
+    info "SELinux: port 5335 labeled as dns_port_t"
+fi
 
 systemctl enable dnsmasq
 systemctl restart dnsmasq
