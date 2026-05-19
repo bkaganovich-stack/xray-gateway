@@ -23,12 +23,45 @@ step()  { echo -e "\n${YLW}══ $* ══${NC}"; }
 
 [ "$(id -u)" = "0" ] || error "Run as root: sudo bash install.sh"
 
+# ── Package manager detection ─────────────────────────────────────────────────
+if   command -v apt-get &>/dev/null; then
+    PM=apt
+    IPROUTE_PKG=iproute2
+    PY_VENV_PKG=python3-venv   # needed on Debian/Ubuntu
+elif command -v dnf     &>/dev/null; then
+    PM=dnf
+    IPROUTE_PKG=iproute
+    PY_VENV_PKG=""             # venv ships with python3 on Fedora/RHEL
+elif command -v yum     &>/dev/null; then
+    PM=yum
+    IPROUTE_PKG=iproute
+    PY_VENV_PKG=""
+else
+    error "Unsupported distro — need apt-get, dnf, or yum (Debian/Ubuntu/Fedora/CentOS/RHEL)"
+fi
+info "Package manager : $PM"
+
+pm_update() {
+    case "$PM" in
+        apt) apt-get update -qq ;;
+        dnf|yum) : ;;   # dnf/yum refresh metadata automatically
+    esac
+}
+
+pm_install() {
+    case "$PM" in
+        apt) apt-get install -y -qq "$@" ;;
+        dnf) dnf install -y -q  "$@" ;;
+        yum) yum install -y -q  "$@" ;;
+    esac
+}
+
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 # When piped from curl there are no local source files; clone the repo first.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" 2>/dev/null && pwd || true)"
 if [[ ! -f "${SCRIPT_DIR}/web/main.py" ]]; then
     step "Downloading xray-gateway"
-    command -v git &>/dev/null || { apt-get update -qq && apt-get install -y -qq git; }
+    command -v git &>/dev/null || { pm_update; pm_install git; }
     TMP_REPO=$(mktemp -d)
     trap 'rm -rf "$TMP_REPO"' EXIT
     git clone --depth=1 "$REPO_URL" "$TMP_REPO"
@@ -95,13 +128,16 @@ detect_network
 
 # ── 3. System packages ────────────────────────────────────────────────────────
 step "Installing packages"
-apt-get update -qq
-apt-get install -y -qq curl python3 python3-pip iptables iproute2 \
-    dnsmasq ca-certificates unzip
+pm_update
+pm_install curl python3 python3-pip iptables "$IPROUTE_PKG" \
+    dnsmasq ca-certificates unzip ${PY_VENV_PKG:+"$PY_VENV_PKG"}
 
-# ── 4. Python deps ────────────────────────────────────────────────────────────
+# ── 4. Python virtualenv + deps ───────────────────────────────────────────────
 step "Installing Python dependencies"
-pip3 install -q fastapi "uvicorn[standard]" python-multipart
+python3 -m venv "$INSTALL_DIR/venv"
+"$INSTALL_DIR/venv/bin/pip" install -q --upgrade pip
+"$INSTALL_DIR/venv/bin/pip" install -q fastapi "uvicorn[standard]" python-multipart
+info "Python venv ready at $INSTALL_DIR/venv"
 
 # ── 5. Download xray-core ─────────────────────────────────────────────────────
 step "Downloading xray-core"
@@ -151,7 +187,7 @@ bash "$INSTALL_DIR/scripts/update-geo.sh" || warn "Geo download failed — retry
 
 # ── 10. Generate initial xray config ─────────────────────────────────────────
 step "Generating initial xray config"
-python3 - <<'PYEOF'
+"$INSTALL_DIR/venv/bin/python3" - <<'PYEOF'
 import json, sys, pathlib
 sys.path.insert(0, '/opt/xray-proxy/web')
 from main import build_xray_config, save_settings, DEFAULT_SETTINGS, CFG_DIR, XCFG
@@ -179,6 +215,18 @@ DNSEOF
 
 systemctl enable dnsmasq
 systemctl restart dnsmasq
+
+# ── 11b. Open firewall ports (Fedora/RHEL only) ───────────────────────────────
+if command -v firewall-cmd &>/dev/null && systemctl is-active firewalld &>/dev/null 2>&1; then
+    step "Configuring firewalld"
+    firewall-cmd --permanent --add-port=80/tcp      # Web UI
+    firewall-cmd --permanent --add-port=12345/tcp   # TProxy TCP
+    firewall-cmd --permanent --add-port=12345/udp   # TProxy UDP
+    firewall-cmd --permanent --add-port=5335/tcp    # dnsmasq
+    firewall-cmd --permanent --add-port=5335/udp    # dnsmasq
+    firewall-cmd --reload
+    info "Firewall: ports 80, 12345, 5335 opened"
+fi
 
 # ── 12. Configure systemd-resolved ────────────────────────────────────────────
 step "Configuring systemd-resolved"
