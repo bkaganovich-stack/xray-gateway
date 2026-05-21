@@ -230,9 +230,14 @@ def build_xray_config(settings: dict) -> dict:
     ]
     if profile == "blocked_only":
         rules += [
-            # Apple CDN (aaplimg.com) uses Russian-hosted IPs (INETCOM AS35598).
-            # Must be BEFORE geoip:ru so SNI-matched domain rule wins.
-            *([{"type": "field", "domain": ["domain:aaplimg.com"], "outboundTag": final}]
+            # Apple CDN uses Russian-hosted IPs (INETCOM AS35598, 87.239.27.240).
+            # osxapps.itunes.apple.com + updates.cdn-apple.com → CNAME → aaplimg.com → RU IP.
+            # xray routes by SNI (not CNAME), so match the original Apple domains.
+            # Must be BEFORE geoip:ru so the domain rule wins over the IP rule.
+            *([{"type": "field", "domain": ["domain:cdn-apple.com",
+                                             "domain:itunes.apple.com",
+                                             "domain:aaplimg.com"],
+                "outboundTag": final}]
               if force_aaplimg else []),
             {"type": "field", "ip":     ["geoip:ru"],                   "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru"],         "outboundTag": "direct"},
@@ -241,9 +246,14 @@ def build_xray_config(settings: dict) -> dict:
         default = "direct"
     elif profile == "all_except_ru":
         rules += [
-            # Apple CDN (aaplimg.com) uses Russian-hosted IPs (INETCOM AS35598).
-            # Must be BEFORE geoip:ru so SNI-matched domain rule wins.
-            *([{"type": "field", "domain": ["domain:aaplimg.com"], "outboundTag": final}]
+            # Apple CDN uses Russian-hosted IPs (INETCOM AS35598, 87.239.27.240).
+            # osxapps.itunes.apple.com + updates.cdn-apple.com → CNAME → aaplimg.com → RU IP.
+            # xray routes by SNI (not CNAME), so match the original Apple domains.
+            # Must be BEFORE geoip:ru so the domain rule wins over the IP rule.
+            *([{"type": "field", "domain": ["domain:cdn-apple.com",
+                                             "domain:itunes.apple.com",
+                                             "domain:aaplimg.com"],
+                "outboundTag": final}]
               if force_aaplimg else []),
             {"type": "field", "ip":     ["geoip:ru"],            "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru"], "outboundTag": "direct"},
