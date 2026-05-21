@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Proxy Gateway</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10/lib/addon-fit.js"></script>
 <style>
 :root {
   --bg: #0f1117; --bg2: #1a1d27; --bg3: #232637;
@@ -44,9 +47,10 @@ nav { width: 220px; background: var(--bg2); border-right: 1px solid var(--border
 .nav-sep { border: none; border-top: 1px solid var(--border); margin: 6px 16px; }
 .nav-bottom { padding: 16px; border-top: 1px solid var(--border); }
 
-main { flex: 1; overflow-y: auto; padding: 28px 32px; }
+main { flex: 1; overflow-y: auto; padding: 28px 32px; display: flex; flex-direction: column; }
 .page { display: none; }
 .page.active { display: block; }
+#page-terminal.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 h2 { font-size: 20px; margin-bottom: 6px; }
 .page-desc { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
 
@@ -216,6 +220,31 @@ input[type="file"] { display: none; }
              text-align: center; color: var(--muted); cursor: pointer; transition: var(--trans); }
 .file-drop:hover { border-color: var(--accent); color: var(--text); }
 code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 12px; }
+
+/* ── aaplimg toggle ── */
+.override-row { display: flex; align-items: center; gap: 12px; padding: 14px 0;
+                border-top: 1px solid var(--border); margin-top: 16px; }
+.override-row label { font-size: 13px; color: var(--text); cursor: pointer; flex: 1; }
+.override-row label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle .slider { position: absolute; inset: 0; background: var(--border);
+                  border-radius: 22px; cursor: pointer; transition: .2s; }
+.toggle .slider:before { content: ''; position: absolute; width: 16px; height: 16px;
+                          left: 3px; top: 3px; background: #fff; border-radius: 50%;
+                          transition: .2s; }
+.toggle input:checked + .slider { background: var(--accent); }
+.toggle input:checked + .slider:before { transform: translateX(18px); }
+
+/* ── Terminal page ── */
+#page-terminal { display: none; flex-direction: column; }
+#page-terminal.active { display: flex; }
+#terminal-container { flex: 1; background: #000; border-radius: var(--radius);
+                       overflow: hidden; min-height: 0; }
+#terminal-container .xterm { height: 100%; }
+#terminal-container .xterm-viewport { overflow-y: auto !important; }
+.terminal-toolbar { display: flex; align-items: center; gap: 10px;
+                     margin-bottom: 12px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -262,6 +291,8 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       <hr class="nav-sep">
       <div class="nav-link" onclick="showPage('settings',this)">
         <span class="ico">⚙️</span> Настройки</div>
+      <div class="nav-link" onclick="showPage('terminal',this)" id="nav-terminal">
+        <span class="ico">🖥️</span> Терминал</div>
     </div>
     <div class="nav-bottom">
       <button class="btn btn-secondary btn-sm" style="width:100%" onclick="doLogout()">
@@ -364,6 +395,17 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
             <h4>🔒 Весь трафик</h4>
             <p>Весь трафик идёт через VPN<br>(кроме локальной сети).</p>
           </div>
+        </div>
+        <div class="override-row">
+          <label for="aaplimg-toggle">
+            Apple CDN (aaplimg.com)
+            <small>87.239.27.240 — Российский IP (INETCOM). Провайдер режет TLS по SNI.
+              Вкл. = через VPN, Выкл. = напрямую.</small>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="aaplimg-toggle" onchange="setAaplimg(this.checked)">
+            <span class="slider"></span>
+          </label>
         </div>
         <div class="mt-4">
           <button class="btn btn-primary" onclick="applyProfile()">✓ Применить профиль</button>
@@ -665,6 +707,19 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       </div>
     </div>
 
+    <!-- ── TERMINAL ──────────────────────────────────────────────────────── -->
+    <div id="page-terminal" class="page">
+      <h2>Терминал</h2>
+      <p class="page-desc">Bash-сессия на шлюзе в реальном времени</p>
+      <div class="terminal-toolbar">
+        <button class="btn btn-secondary btn-sm" onclick="termConnect()" id="term-conn-btn">▶ Подключить</button>
+        <button class="btn btn-secondary btn-sm" onclick="termDisconnect()" id="term-disc-btn" style="display:none">⏹ Отключить</button>
+        <button class="btn btn-secondary btn-sm" onclick="termClear()">🗑 Очистить</button>
+        <span id="term-status" class="text-muted" style="font-size:12px;margin-left:4px"></span>
+      </div>
+      <div id="terminal-container"></div>
+    </div>
+
   </main>
 </div>
 
@@ -682,6 +737,12 @@ let connStreamES = null;
 let connStreaming = false;
 let currentLogTab = 'syslog';
 const MAX_CONN_ROWS = 500;
+
+// Terminal state
+let term = null;
+let termFit = null;
+let termWs = null;
+let termResizeObserver = null;
 
 // ─── API helpers ───────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -745,6 +806,7 @@ function showPage(name, linkEl) {
   if (name === 'logs') { loadLogs(); if (currentLogTab === 'connections') loadConnections(); }
   if (name === 'geo') loadGeoInfo();
   if (name === 'system') startSysinfoStream(); else stopSysinfoStream();
+  if (name === 'terminal') { termInit(); } else { /* leave terminal running in background */ }
 }
 
 // ─── Status updates ─────────────────────────────────────────────────────────
@@ -772,6 +834,8 @@ async function refreshStatus() {
     d.vpn ? `${d.vpn.protocol} · ${d.vpn.server}:${d.vpn.port}` : '';
   currentProfile = d.profile;
   updateProfileUI(d.profile);
+  const tog = document.getElementById('aaplimg-toggle');
+  if (tog) tog.checked = d.force_aaplimg_vpn !== false;
 
   // Key info on vpn page
   const ki = document.getElementById('cur-key-info');
@@ -809,6 +873,7 @@ function stopUpdates() {
   if (logStreamES) { logStreamES.close(); logStreamES = null; }
   stopSysinfoStream();
   if (connStreamES) { connStreamES.close(); connStreamES = null; }
+  termDisconnect();
 }
 
 // ─── Speed stream (dashboard) ────────────────────────────────────────────────
@@ -1196,6 +1261,111 @@ async function factoryReset() {
   const r = await apiJ('POST', '/api/factory-reset');
   if (r?.ok) { toast('Настройки сброшены. Перезайдите.'); setTimeout(doLogout, 1500); }
   else toast('Ошибка', false);
+}
+
+// ─── Apple CDN override ───────────────────────────────────────────────────────
+async function setAaplimg(enabled) {
+  const r = await apiJ('POST', '/api/aaplimg-vpn', { enabled });
+  if (r?.ok) {
+    toast(enabled ? 'Apple CDN → через VPN' : 'Apple CDN → напрямую');
+    refreshStatus();
+  } else {
+    toast(r?.error || 'Ошибка', false);
+    // revert toggle on failure
+    const tog = document.getElementById('aaplimg-toggle');
+    if (tog) tog.checked = !enabled;
+  }
+}
+
+// ─── Terminal ─────────────────────────────────────────────────────────────────
+function termInit() {
+  if (term) { setTimeout(() => termFit && termFit.fit(), 50); return; }
+  const container = document.getElementById('terminal-container');
+  if (!container) return;
+
+  term = new Terminal({
+    theme: { background: '#0d0d0d', foreground: '#e2e8f0',
+             cursor: '#6c8ef5', selectionBackground: 'rgba(108,142,245,0.3)' },
+    fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+    fontSize: 13,
+    lineHeight: 1.25,
+    cursorBlink: true,
+    scrollback: 5000,
+  });
+  termFit = new FitAddon.FitAddon();
+  term.loadAddon(termFit);
+  term.open(container);
+  termFit.fit();
+
+  termResizeObserver = new ResizeObserver(() => {
+    if (termFit) { termFit.fit(); termSendResize(); }
+  });
+  termResizeObserver.observe(container);
+
+  term.writeln('\x1b[2;37mТерминал готов. Нажмите \x1b[0m\x1b[1;32m▶ Подключить\x1b[0m\x1b[2;37m для запуска сессии.\x1b[0m');
+}
+
+function termSendResize() {
+  if (termWs && termWs.readyState === WebSocket.OPEN && term) {
+    termWs.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+  }
+}
+
+async function termConnect() {
+  if (termWs && termWs.readyState === WebSocket.OPEN) return;
+  termInit();
+
+  // Get auth token from cookie
+  const token = document.cookie.split(';').map(c => c.trim())
+    .find(c => c.startsWith('token='))?.replace('token=', '') || '';
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${proto}://${location.host}/ws/terminal?token=${encodeURIComponent(token)}`;
+
+  termSetStatus('⏳ Подключение…', 'var(--muted)');
+  document.getElementById('term-conn-btn').style.display = 'none';
+  document.getElementById('term-disc-btn').style.display = '';
+
+  termWs = new WebSocket(url);
+  termWs.binaryType = 'arraybuffer';
+
+  termWs.onopen = () => {
+    termSetStatus('● Подключено', 'var(--green)');
+    termFit.fit();
+    termSendResize();
+    // Forward keyboard input to server
+    term.onData(data => {
+      if (termWs && termWs.readyState === WebSocket.OPEN)
+        termWs.send(new TextEncoder().encode(data));
+    });
+  };
+
+  termWs.onmessage = e => {
+    const data = e.data instanceof ArrayBuffer
+      ? new Uint8Array(e.data) : e.data;
+    term.write(data);
+  };
+
+  termWs.onerror = () => termSetStatus('✕ Ошибка соединения', 'var(--red)');
+
+  termWs.onclose = () => {
+    termSetStatus('● Отключено', 'var(--muted)');
+    document.getElementById('term-conn-btn').style.display = '';
+    document.getElementById('term-disc-btn').style.display = 'none';
+    termWs = null;
+    if (term) term.writeln('\r\n\x1b[2;37m--- сессия завершена ---\x1b[0m');
+  };
+}
+
+function termDisconnect() {
+  if (termWs) { termWs.close(); termWs = null; }
+}
+
+function termClear() { if (term) term.clear(); }
+
+function termSetStatus(msg, color) {
+  const el = document.getElementById('term-status');
+  if (el) { el.textContent = msg; el.style.color = color || ''; }
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────────

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Xray Proxy Gateway — Web Management Interface"""
 
-import asyncio, base64, hashlib, hmac, io, json, os, re, shutil, subprocess, tarfile, time, urllib.parse
+import asyncio, base64, fcntl, hashlib, hmac, io, json, os, pty, re, shutil, signal, struct, subprocess, tarfile, termios, time, urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -26,6 +26,9 @@ DEFAULT_SETTINGS = {
     "vpn_key":    None,
     "profile":    "all_except_ru",
     "geo_updated": None,
+    # Apple CDN (aaplimg.com) uses Russian-hosted IPs; ISP blocks TLS to Apple
+    # domains on those IPs. Force via VPN in all_except_ru / blocked_only profiles.
+    "force_aaplimg_vpn": True,
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -211,6 +214,7 @@ def build_xray_config(settings: dict) -> dict:
         {"protocol": "blackhole", "tag": "block"},
     ]
     final = "proxy" if has_proxy else "direct"
+    force_aaplimg = settings.get("force_aaplimg_vpn", True)
     rules = [
         *([{"type": "field", "ip": [proxy_server_ip], "outboundTag": "direct"}]
           if proxy_server_ip else []),
@@ -226,6 +230,10 @@ def build_xray_config(settings: dict) -> dict:
     ]
     if profile == "blocked_only":
         rules += [
+            # Apple CDN (aaplimg.com) uses Russian-hosted IPs (INETCOM AS35598).
+            # Must be BEFORE geoip:ru so SNI-matched domain rule wins.
+            *([{"type": "field", "domain": ["domain:aaplimg.com"], "outboundTag": final}]
+              if force_aaplimg else []),
             {"type": "field", "ip":     ["geoip:ru"],                   "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru"],         "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru-blocked"], "outboundTag": final},
@@ -233,6 +241,10 @@ def build_xray_config(settings: dict) -> dict:
         default = "direct"
     elif profile == "all_except_ru":
         rules += [
+            # Apple CDN (aaplimg.com) uses Russian-hosted IPs (INETCOM AS35598).
+            # Must be BEFORE geoip:ru so SNI-matched domain rule wins.
+            *([{"type": "field", "domain": ["domain:aaplimg.com"], "outboundTag": final}]
+              if force_aaplimg else []),
             {"type": "field", "ip":     ["geoip:ru"],            "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru"], "outboundTag": "direct"},
         ]
@@ -396,10 +408,11 @@ def get_xray_state() -> str:
 app = FastAPI(docs_url=None, redoc_url=None)
 
 # ─ Models ─────────────────────────────────────────────────────────────────────
-class LoginReq(BaseModel):   username: str; password: str
-class KeyReq(BaseModel):     key: str
-class ProfileReq(BaseModel): profile: str
-class PwReq(BaseModel):      current: str; new_pw: str
+class LoginReq(BaseModel):    username: str; password: str
+class KeyReq(BaseModel):      key: str
+class ProfileReq(BaseModel):  profile: str
+class PwReq(BaseModel):       current: str; new_pw: str
+class AaplimgReq(BaseModel):  enabled: bool
 
 # ── Captive portal (no auth) ──────────────────────────────────────────────────
 @app.get("/generate_204")
@@ -456,7 +469,8 @@ async def get_status(u: str = Depends(auth_dep)):
         except Exception:
             vpn_meta = {"name": "Invalid key", "protocol": "?", "server": "?", "port": 0}
     return {"state": state, "gateway_ip": gw, "profile": s.get("profile", "all_except_ru"),
-            "vpn": vpn_meta, "geo_updated": s.get("geo_updated"), "speeds": speeds}
+            "vpn": vpn_meta, "geo_updated": s.get("geo_updated"), "speeds": speeds,
+            "force_aaplimg_vpn": s.get("force_aaplimg_vpn", True)}
 
 # ── Speed SSE ─────────────────────────────────────────────────────────────────
 @app.get("/api/speed-stream")
@@ -514,6 +528,15 @@ async def set_profile(req: ProfileReq, u: str = Depends(auth_dep)):
         raise HTTPException(400, "Invalid profile")
     s = load_settings()
     s["profile"] = req.profile
+    save_settings(s)
+    ok, err = apply_config(s)
+    return {"ok": ok, "error": err or None}
+
+# ── Apple CDN override ────────────────────────────────────────────────────────
+@app.post("/api/aaplimg-vpn")
+async def set_aaplimg_vpn(req: AaplimgReq, u: str = Depends(auth_dep)):
+    s = load_settings()
+    s["force_aaplimg_vpn"] = req.enabled
     save_settings(s)
     ok, err = apply_config(s)
     return {"ok": ok, "error": err or None}
@@ -739,6 +762,102 @@ async def factory_reset(u: str = Depends(auth_dep)):
     save_settings(dict(DEFAULT_SETTINGS))
     apply_config(DEFAULT_SETTINGS)
     return {"ok": True}
+
+# ── Terminal WebSocket ────────────────────────────────────────────────────────
+@app.websocket("/ws/terminal")
+async def terminal_ws(websocket: WebSocket):
+    """Cockpit-style PTY terminal over WebSocket.
+    Auth: Bearer token passed as ?token= query param (cookie not forwarded on WS).
+    Protocol:
+      client→server: raw bytes (keyboard) OR JSON {"type":"resize","cols":N,"rows":M}
+      server→client: raw bytes (terminal output)
+    """
+    token = websocket.query_params.get("token", "") or websocket.cookies.get("token", "")
+    if not verify_token(token):
+        await websocket.close(code=4401)
+        return
+    await websocket.accept()
+
+    # Spawn bash in a PTY
+    pid, fd = pty.fork()
+    if pid == 0:
+        # child process
+        os.execvpe("bash", ["bash", "-i"], {
+            **os.environ,
+            "TERM": "xterm-256color",
+            "HOME": os.environ.get("HOME", "/root"),
+        })
+        os._exit(1)
+
+    loop = asyncio.get_event_loop()
+
+    async def pty_to_ws():
+        """Read PTY output, forward to WebSocket."""
+        try:
+            while True:
+                try:
+                    data = await loop.run_in_executor(None, os.read, fd, 4096)
+                    if data:
+                        await websocket.send_bytes(data)
+                    else:
+                        break
+                except OSError:
+                    break
+        except Exception:
+            pass
+
+    async def ws_to_pty():
+        """Read WebSocket input, forward to PTY (or handle resize)."""
+        try:
+            while True:
+                msg = await websocket.receive()
+                if msg["type"] == "websocket.disconnect":
+                    break
+                raw = msg.get("bytes") or (
+                    msg["text"].encode() if msg.get("text") else None)
+                if not raw:
+                    continue
+                # Resize message?
+                try:
+                    j = json.loads(raw)
+                    if j.get("type") == "resize":
+                        cols = max(1, int(j.get("cols", 80)))
+                        rows = max(1, int(j.get("rows", 24)))
+                        fcntl.ioctl(fd, termios.TIOCSWINSZ,
+                                    struct.pack("HHHH", rows, cols, 0, 0))
+                        continue
+                except Exception:
+                    pass
+                try:
+                    os.write(fd, raw)
+                except OSError:
+                    break
+        except Exception:
+            pass
+
+    r_task = asyncio.create_task(pty_to_ws())
+    w_task = asyncio.create_task(ws_to_pty())
+    try:
+        await asyncio.wait([r_task, w_task], return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        for t in [r_task, w_task]:
+            t.cancel()
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+        try:
+            os.waitpid(pid, os.WNOHANG)
+        except Exception:
+            pass
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 # ── SPA (must be last) ────────────────────────────────────────────────────────
 @app.get("/{full_path:path}")
