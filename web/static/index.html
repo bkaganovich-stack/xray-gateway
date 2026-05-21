@@ -454,7 +454,9 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
           </div>
         </div>
         <div class="override-row">
-          <div class="override-label">Apple CDN</div>
+          <div class="override-label">Apple CDN
+            <small style="display:block;color:var(--muted);font-size:11px;margin-top:2px">Вкл. = через VPN, Выкл. = напрямую.</small>
+          </div>
           <label class="toggle" title="Apple CDN (aaplimg.com) через VPN">
             <input type="checkbox" id="aaplimg-toggle" onchange="setAaplimg(this.checked)">
             <span class="slider"></span>
