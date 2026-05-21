@@ -224,12 +224,11 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
 /* ── aaplimg toggle ── */
 .override-row { display: flex; align-items: center; gap: 12px; padding: 14px 0;
                 border-top: 1px solid var(--border); margin-top: 16px; }
-.override-row label { font-size: 13px; color: var(--text); cursor: pointer; flex: 1; }
-.override-row label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
-.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
-.toggle input { opacity: 0; width: 0; height: 0; }
+.override-label { font-size: 13px; color: var(--text); flex: 1; }
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; cursor: pointer; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
 .toggle .slider { position: absolute; inset: 0; background: var(--border);
-                  border-radius: 22px; cursor: pointer; transition: .2s; }
+                  border-radius: 22px; transition: .2s; }
 .toggle .slider:before { content: ''; position: absolute; width: 16px; height: 16px;
                           left: 3px; top: 3px; background: #fff; border-radius: 50%;
                           transition: .2s; }
@@ -244,7 +243,58 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
 #terminal-container .xterm { height: 100%; }
 #terminal-container .xterm-viewport { overflow-y: auto !important; }
 .terminal-toolbar { display: flex; align-items: center; gap: 10px;
-                     margin-bottom: 12px; flex-shrink: 0; }
+                    margin-bottom: 12px; flex-shrink: 0; flex-wrap: wrap; }
+
+/* ── Mobile header ── */
+.mobile-header { display: none; align-items: center; gap: 12px; padding: 14px 16px;
+                 background: var(--bg2); border-bottom: 1px solid var(--border);
+                 flex-shrink: 0; position: sticky; top: 0; z-index: 100; }
+.mobile-header .m-title { font-weight: 600; font-size: 15px; flex: 1; }
+.hamburger { background: none; border: none; color: var(--text); font-size: 22px;
+             cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 6px; }
+.hamburger:hover { background: var(--bg3); }
+.nav-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+               z-index: 198; }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .mobile-header { display: flex; }
+  #app-screen { flex-direction: column; }
+
+  nav { position: fixed; top: 0; left: 0; height: 100%; width: 240px;
+        z-index: 200; transform: translateX(-100%); transition: transform .25s ease; }
+  nav.open { transform: translateX(0); }
+  .nav-overlay.show { display: block; }
+
+  main { padding: 16px 14px; }
+  .page-desc { margin-bottom: 16px; }
+
+  .status-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .profile-grid { grid-template-columns: 1fr; }
+  .cpu-grid { grid-template-columns: repeat(2, 1fr); }
+  .speed-row { gap: 16px; }
+  .card { padding: 16px; }
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 20px; }
+  h2 { font-size: 18px; }
+
+  .conn-table-wrap { max-height: 300px; }
+  .col-time { width: 90px; } .col-src { display: none; } .col-route { width: 80px; }
+  #log-box { height: 260px; }
+
+  .btn-row { gap: 8px; }
+  .btn { padding: 8px 14px; font-size: 13px; }
+  .btn-sm { padding: 5px 10px; }
+
+  .login-card { width: calc(100vw - 32px); max-width: 400px; padding: 28px 20px; }
+
+  #toast { bottom: 12px; right: 12px; left: 12px; max-width: none; }
+}
+
+@media (max-width: 400px) {
+  .status-grid { grid-template-columns: 1fr; }
+  main { padding: 12px 10px; }
+}
 </style>
 </head>
 <body>
@@ -267,7 +317,14 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
 
 <!-- ─── APP ───────────────────────────────────────────────────────────────── -->
 <div id="app-screen" style="display:none">
-  <nav>
+  <!-- Mobile top bar -->
+  <div class="mobile-header">
+    <button class="hamburger" onclick="toggleNav()" aria-label="Меню">☰</button>
+    <span class="m-title">Proxy Gateway</span>
+  </div>
+  <!-- Nav overlay (tap to close on mobile) -->
+  <div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+  <nav id="sidebar">
     <div class="nav-logo">
       <div class="icon">🛡️</div>
       <span>Proxy Gateway</span>
@@ -397,12 +454,8 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
           </div>
         </div>
         <div class="override-row">
-          <label for="aaplimg-toggle">
-            Apple CDN (aaplimg.com)
-            <small>87.239.27.240 — Российский IP (INETCOM). Провайдер режет TLS по SNI.
-              Вкл. = через VPN, Выкл. = напрямую.</small>
-          </label>
-          <label class="toggle">
+          <div class="override-label">Apple CDN</div>
+          <label class="toggle" title="Apple CDN (aaplimg.com) через VPN">
             <input type="checkbox" id="aaplimg-toggle" onchange="setAaplimg(this.checked)">
             <span class="slider"></span>
           </label>
@@ -796,12 +849,25 @@ async function doLogout() {
   stopUpdates(); showLogin();
 }
 
+// ─── Mobile nav ──────────────────────────────────────────────────────────────
+function toggleNav() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('nav-overlay');
+  const open = sidebar.classList.toggle('open');
+  overlay.classList.toggle('show', open);
+}
+function closeNav() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('show');
+}
+
 // ─── Navigation ─────────────────────────────────────────────────────────────
 function showPage(name, linkEl) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if (linkEl) linkEl.classList.add('active');
+  closeNav(); // auto-close on mobile
 
   if (name === 'logs') { loadLogs(); if (currentLogTab === 'connections') loadConnections(); }
   if (name === 'geo') loadGeoInfo();
