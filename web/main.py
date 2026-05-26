@@ -298,7 +298,7 @@ def build_xray_config(settings: dict) -> dict:
             "tag": "tproxy-in", "port": 12345,
             "protocol": "dokodemo-door",
             "settings": {"network": "tcp,udp", "followRedirect": True},
-            "sniffing": {"enabled": True, "destOverride": ["http", "tls"], "routeOnly": True},
+            "sniffing": {"enabled": True, "destOverride": ["http", "tls", "quic"], "routeOnly": True},
             "streamSettings": {"sockopt": {"tproxy": "tproxy", "mark": 255}},
         }],
         "outbounds": outbounds,
