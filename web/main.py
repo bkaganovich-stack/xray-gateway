@@ -29,11 +29,6 @@ DEFAULT_SETTINGS = {
     # Apple CDN (aaplimg.com) uses Russian-hosted IPs; ISP blocks TLS to Apple
     # domains on those IPs. Force via VPN in all_except_ru / blocked_only profiles.
     "force_aaplimg_vpn": True,
-    # Ozon's IP range (AS44386 "LLC Internet Solutions", 185.73.193.x/194.x) is absent from
-    # xray's geoip:ru database, so ozon.ru falls through to the catch-all and goes via VPN.
-    # Qrator WAF (Ozon anti-fraud) detects the VPN exit IP and shows "Выключите VPN".
-    # Force these domains direct so Ozon sees the ISP's Russian IP instead.
-    "force_ozon_direct": True,
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -220,15 +215,6 @@ def build_xray_config(settings: dict) -> dict:
     ]
     final = "proxy" if has_proxy else "direct"
     force_aaplimg = settings.get("force_aaplimg_vpn", True)
-    force_ozon   = settings.get("force_ozon_direct", True)
-    # Ozon domains to force direct — ozon.ru IPs (AS44386) are absent from geoip:ru database
-    OZON_DOMAINS = [
-        "domain:ozon.ru",
-        "domain:ozonusercontent.com",
-        "domain:ozonid.ru",
-        "domain:ozone.ru",
-        "domain:o3.ru",
-    ]
     rules = [
         *([{"type": "field", "ip": [proxy_server_ip], "outboundTag": "direct"}]
           if proxy_server_ip else []),
@@ -253,10 +239,6 @@ def build_xray_config(settings: dict) -> dict:
                                              "domain:aaplimg.com"],
                 "outboundTag": final}]
               if force_aaplimg else []),
-            # Ozon: IPs (AS44386) absent from geoip:ru — force direct so Ozon WAF
-            # (Qrator) sees the ISP's Russian IP, not the VPN exit.
-            *([{"type": "field", "domain": OZON_DOMAINS, "outboundTag": "direct"}]
-              if force_ozon else []),
             {"type": "field", "ip":     ["geoip:ru"],                   "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru"],         "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru-blocked"], "outboundTag": final},
@@ -273,10 +255,6 @@ def build_xray_config(settings: dict) -> dict:
                                              "domain:aaplimg.com"],
                 "outboundTag": final}]
               if force_aaplimg else []),
-            # Ozon: IPs (AS44386) absent from geoip:ru — force direct so Ozon WAF
-            # (Qrator) sees the ISP's Russian IP, not the VPN exit.
-            *([{"type": "field", "domain": OZON_DOMAINS, "outboundTag": "direct"}]
-              if force_ozon else []),
             {"type": "field", "ip":     ["geoip:ru"],            "outboundTag": "direct"},
             {"type": "field", "domain": ["geosite:category-ru"], "outboundTag": "direct"},
         ]
@@ -445,7 +423,6 @@ class KeyReq(BaseModel):      key: str
 class ProfileReq(BaseModel):  profile: str
 class PwReq(BaseModel):       current: str; new_pw: str
 class AaplimgReq(BaseModel):  enabled: bool
-class OzonReq(BaseModel):     enabled: bool
 
 # ── Captive portal (no auth) ──────────────────────────────────────────────────
 @app.get("/generate_204")
@@ -503,8 +480,7 @@ async def get_status(u: str = Depends(auth_dep)):
             vpn_meta = {"name": "Invalid key", "protocol": "?", "server": "?", "port": 0}
     return {"state": state, "gateway_ip": gw, "profile": s.get("profile", "all_except_ru"),
             "vpn": vpn_meta, "geo_updated": s.get("geo_updated"), "speeds": speeds,
-            "force_aaplimg_vpn": s.get("force_aaplimg_vpn", True),
-            "force_ozon_direct": s.get("force_ozon_direct", True)}
+            "force_aaplimg_vpn": s.get("force_aaplimg_vpn", True)}
 
 # ── Speed SSE ─────────────────────────────────────────────────────────────────
 @app.get("/api/speed-stream")
@@ -571,15 +547,6 @@ async def set_profile(req: ProfileReq, u: str = Depends(auth_dep)):
 async def set_aaplimg_vpn(req: AaplimgReq, u: str = Depends(auth_dep)):
     s = load_settings()
     s["force_aaplimg_vpn"] = req.enabled
-    save_settings(s)
-    ok, err = apply_config(s)
-    return {"ok": ok, "error": err or None}
-
-# ── Ozon direct override ──────────────────────────────────────────────────────
-@app.post("/api/ozon-direct")
-async def set_ozon_direct(req: OzonReq, u: str = Depends(auth_dep)):
-    s = load_settings()
-    s["force_ozon_direct"] = req.enabled
     save_settings(s)
     ok, err = apply_config(s)
     return {"ok": ok, "error": err or None}

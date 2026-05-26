@@ -462,15 +462,6 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
             <span class="slider"></span>
           </label>
         </div>
-        <div class="override-row">
-          <div class="override-label">Ozon
-            <small style="display:block;color:var(--muted);font-size:11px;margin-top:2px">Вкл. = напрямую, Выкл. = через VPN.</small>
-          </div>
-          <label class="toggle" title="ozon.ru напрямую (обход Qrator WAF)">
-            <input type="checkbox" id="ozon-toggle" onchange="setOzon(this.checked)">
-            <span class="slider"></span>
-          </label>
-        </div>
         <div class="mt-4">
           <button class="btn btn-primary" onclick="applyProfile()">✓ Применить профиль</button>
           <span id="profile-result" class="text-muted" style="margin-left:12px;font-size:13px"></span>
@@ -913,8 +904,6 @@ async function refreshStatus() {
   updateProfileUI(d.profile);
   const tog = document.getElementById('aaplimg-toggle');
   if (tog) tog.checked = d.force_aaplimg_vpn !== false;
-  const ozonTog = document.getElementById('ozon-toggle');
-  if (ozonTog) ozonTog.checked = d.force_ozon_direct !== false;
 
   // Key info on vpn page
   const ki = document.getElementById('cur-key-info');
@@ -1352,20 +1341,6 @@ async function setAaplimg(enabled) {
     toast(r?.error || 'Ошибка', false);
     // revert toggle on failure
     const tog = document.getElementById('aaplimg-toggle');
-    if (tog) tog.checked = !enabled;
-  }
-}
-
-// ─── Ozon direct override ─────────────────────────────────────────────────────
-async function setOzon(enabled) {
-  const r = await apiJ('POST', '/api/ozon-direct', { enabled });
-  if (r?.ok) {
-    toast(enabled ? 'Ozon → напрямую' : 'Ozon → через VPN');
-    refreshStatus();
-  } else {
-    toast(r?.error || 'Ошибка', false);
-    // revert toggle on failure
-    const tog = document.getElementById('ozon-toggle');
     if (tog) tog.checked = !enabled;
   }
 }
