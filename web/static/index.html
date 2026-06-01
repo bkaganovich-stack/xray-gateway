@@ -221,6 +221,64 @@ input[type="file"] { display: none; }
 .file-drop:hover { border-color: var(--accent); color: var(--text); }
 code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 12px; }
 
+/* ── Route tester ── */
+.route-result { border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 13px; }
+.route-result.direct { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); }
+.route-result.proxy  { background: rgba(108,142,245,0.1); border: 1px solid rgba(108,142,245,0.3); }
+.route-result.error  { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); }
+.route-result .r-out { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.route-result.direct .r-out { color: var(--green); }
+.route-result.proxy  .r-out { color: var(--accent); }
+.route-result.error  .r-out { color: var(--red); }
+.route-result .r-rule { color: var(--muted); font-size: 12px; }
+.route-result .r-ips  { margin-top: 6px; color: var(--muted); font-size: 11px; font-family: 'SF Mono', monospace; }
+
+/* ── Custom rules ── */
+.rules-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; min-height: 32px; }
+.rule-tag { display: flex; align-items: center; gap: 8px; background: var(--bg3);
+            border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+            font-size: 12px; font-family: 'SF Mono', monospace; }
+.rule-tag .r-val { flex: 1; color: var(--text); word-break: break-all; }
+.rule-tag .r-del { cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1;
+                   padding: 0 2px; border: none; background: none; }
+.rule-tag .r-del:hover { color: var(--red); }
+.rule-add-row { display: flex; gap: 8px; margin-top: 8px; }
+.rule-add-row input { flex: 1; }
+
+/* ── Snapshots ── */
+.snap-list { display: flex; flex-direction: column; gap: 6px; }
+.snap-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+             background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
+.snap-meta { flex: 1; }
+.snap-id   { font-size: 11px; color: var(--muted); font-family: monospace; }
+.snap-reason { font-size: 13px; font-weight: 500; }
+.snap-ts   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.snap-vpn  { font-size: 10px; padding: 2px 6px; border-radius: 4px;
+             background: rgba(52,211,153,0.15); color: var(--green); }
+
+/* ── Devices ── */
+.dev-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dev-table th { color: var(--muted); font-size: 11px; text-transform: uppercase;
+                letter-spacing: 0.4px; padding: 6px 10px; border-bottom: 1px solid var(--border);
+                text-align: left; }
+.dev-table td { padding: 8px 10px; border-bottom: 1px solid rgba(45,49,72,0.4); }
+.dev-table tr:hover td { background: var(--bg3); }
+.dev-mac  { font-family: monospace; font-size: 11px; color: var(--muted); }
+.dev-name-input { background: transparent; border: none; border-bottom: 1px solid var(--border);
+                  color: var(--text); font-size: 13px; width: 130px; padding: 2px 4px;
+                  outline: none; }
+.dev-name-input:focus { border-bottom-color: var(--accent); }
+
+/* ── Connection table search ── */
+.conn-controls { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+.conn-controls input, .conn-controls select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 6px 10px; font-size: 12px; outline: none; }
+.conn-controls input:focus, .conn-controls select:focus { border-color: var(--accent); }
+.conn-stats { display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; flex-wrap: wrap; }
+.conn-stat { color: var(--muted); }
+.conn-stat span { color: var(--text); font-weight: 600; }
+
 /* ── aaplimg toggle ── */
 .override-row { display: flex; align-items: center; gap: 12px; padding: 14px 0;
                 border-top: 1px solid var(--border); margin-top: 16px; }
@@ -336,6 +394,10 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
         <span class="ico">🔑</span> VPN ключ</div>
       <div class="nav-link" onclick="showPage('profile',this)">
         <span class="ico">🗺️</span> Профиль маршрутов</div>
+      <div class="nav-link" onclick="showPage('rules',this)">
+        <span class="ico">📝</span> Правила</div>
+      <div class="nav-link" onclick="showPage('devices',this)">
+        <span class="ico">📡</span> Устройства</div>
       <div class="nav-link" onclick="showPage('geo',this)">
         <span class="ico">🌍</span> Гео-базы</div>
       <hr class="nav-sep">
@@ -468,6 +530,19 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
           <span id="profile-result" class="text-muted" style="margin-left:12px;font-size:13px"></span>
         </div>
       </div>
+
+      <!-- Route Tester -->
+      <div class="card">
+        <div class="card-title">Тест маршрута</div>
+        <p class="text-muted" style="font-size:13px;margin-bottom:12px">
+          Проверьте, как xray маршрутизирует домен или IP при текущих настройках.</p>
+        <div style="display:flex;gap:8px">
+          <input id="rt-input" type="text" placeholder="ozon.ru, 1.2.3.4, 2001:db8::/32…"
+                 style="flex:1" onkeydown="if(event.key==='Enter')runRouteTest()">
+          <button class="btn btn-primary" onclick="runRouteTest()" id="rt-btn">Проверить</button>
+        </div>
+        <div id="rt-result"></div>
+      </div>
     </div>
 
     <!-- ── GEO ────────────────────────────────────────────────────────────── -->
@@ -522,13 +597,30 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
 
       <!-- Connections tab -->
       <div id="logtab-connections" class="card" style="display:none">
-        <div class="btn-row" style="margin-bottom:12px">
+        <div class="btn-row" style="margin-bottom:10px">
           <button class="btn btn-secondary btn-sm" onclick="loadConnections()">🔄 Обновить</button>
-          <button class="btn btn-secondary btn-sm" id="conn-stream-btn" onclick="toggleConnStream()">
-            ▶ Live</button>
+          <button class="btn btn-secondary btn-sm" id="conn-stream-btn" onclick="toggleConnStream()">▶ Live</button>
           <button class="btn btn-secondary btn-sm" onclick="clearConns()">✕ Очистить</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportConnCSV()">↓ CSV</button>
           <span id="conn-count" class="text-muted" style="font-size:12px;margin-left:6px"></span>
         </div>
+        <!-- Search & filters -->
+        <div class="conn-controls">
+          <input id="conn-search" type="text" placeholder="Поиск по хосту, IP, источнику…"
+                 style="min-width:180px" oninput="renderConns()">
+          <select id="conn-filter-route" onchange="renderConns()">
+            <option value="">Все маршруты</option>
+            <option value="proxy">VPN</option>
+            <option value="direct">Direct</option>
+          </select>
+          <select id="conn-filter-proto" onchange="renderConns()">
+            <option value="">Все протоколы</option>
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+          </select>
+        </div>
+        <!-- Aggregation stats -->
+        <div class="conn-stats" id="conn-stats"></div>
         <div class="conn-table-wrap">
           <table class="conn-table">
             <thead>
@@ -742,6 +834,18 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       </div>
 
       <div class="card">
+        <div class="card-title">Снапшоты конфигурации</div>
+        <p class="text-muted" style="font-size:12px;margin-bottom:12px">
+          Автоматически создаются перед каждым изменением. Последние 10. При ошибке старта xray — откат выполняется автоматически.</p>
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn btn-secondary btn-sm" onclick="loadSnapshots()">🔄 Обновить</button>
+        </div>
+        <div id="snap-list" class="snap-list">
+          <div class="text-muted" style="font-size:13px;padding:8px 0">Загрузка…</div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Смена пароля</div>
         <div class="field"><label>Текущий пароль</label>
           <input id="pw-cur" type="password" autocomplete="current-password"></div>
@@ -781,6 +885,72 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
           <a href="https://github.com/bkaganovich-stack/xray-gateway" target="_blank"
              class="info-val" style="color:var(--accent);font-size:13px">
             bkaganovich-stack/xray-gateway</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RULES ────────────────────────────────────────────────────────── -->
+    <div id="page-rules" class="page">
+      <h2>Правила маршрутизации</h2>
+      <p class="page-desc">Переопределения для конкретных доменов и IP — приоритет выше гео-баз</p>
+
+      <div class="card">
+        <div class="card-title">🟢 Всегда напрямую</div>
+        <p class="text-muted" style="font-size:12px;margin-bottom:10px">
+          Форматы: <code>domain:ozon.ru</code> · <code>full:ozon.ru</code> ·
+          <code>keyword:yandex</code> · <code>regexp:^.*\.ru$</code> · <code>1.2.3.0/24</code></p>
+        <div id="rules-direct-list" class="rules-list"></div>
+        <div class="rule-add-row">
+          <input id="rule-direct-input" type="text" placeholder="domain:example.ru или 1.2.3.0/24"
+                 onkeydown="if(event.key==='Enter')addRule('direct')">
+          <button class="btn btn-secondary btn-sm" onclick="addRule('direct')">+ Добавить</button>
+        </div>
+        <div id="rule-direct-err" style="color:var(--red);font-size:12px;margin-top:6px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔵 Всегда через VPN</div>
+        <p class="text-muted" style="font-size:12px;margin-bottom:10px">
+          Те же форматы. Используйте, если сайт не работает без VPN при вашем профиле.</p>
+        <div id="rules-vpn-list" class="rules-list"></div>
+        <div class="rule-add-row">
+          <input id="rule-vpn-input" type="text" placeholder="domain:site.com или 5.6.7.8"
+                 onkeydown="if(event.key==='Enter')addRule('vpn')">
+          <button class="btn btn-secondary btn-sm" onclick="addRule('vpn')">+ Добавить</button>
+        </div>
+        <div id="rule-vpn-err" style="color:var(--red);font-size:12px;margin-top:6px"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveRules()">✓ Сохранить правила</button>
+        <span id="rules-result" class="text-muted" style="font-size:13px"></span>
+      </div>
+    </div>
+
+    <!-- ── DEVICES ───────────────────────────────────────────────────────── -->
+    <div id="page-devices" class="page">
+      <h2>Устройства</h2>
+      <p class="page-desc">LAN-клиенты из ARP-таблицы. Нажмите на имя для редактирования.</p>
+
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="loadDevices()">🔄 Обновить</button>
+        </div>
+        <div id="dev-table-wrap">
+          <table class="dev-table">
+            <thead>
+              <tr>
+                <th>IP-адрес</th>
+                <th>MAC</th>
+                <th>Состояние</th>
+                <th>Имя устройства</th>
+              </tr>
+            </thead>
+            <tbody id="dev-tbody">
+              <tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">
+                Загрузка…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -896,7 +1066,9 @@ function showPage(name, linkEl) {
 
   if (name === 'logs') { loadLogs(); if (currentLogTab === 'connections') loadConnections(); }
   if (name === 'geo') loadGeoInfo();
-  if (name === 'settings') loadAbout();
+  if (name === 'settings') { loadAbout(); loadSnapshots(); }
+  if (name === 'rules') loadRules();
+  if (name === 'devices') loadDevices();
   if (name === 'system') startSysinfoStream(); else stopSysinfoStream();
   if (name === 'terminal') { termInit(); } else { /* leave terminal running in background */ }
 }
@@ -1242,6 +1414,7 @@ function renderLogs(text) {
   box.scrollTop = box.scrollHeight;
 }
 function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const escHtml = escH;  // alias
 function clearLogs() { document.getElementById('log-box').innerHTML = ''; }
 function copyLogs() {
   navigator.clipboard.writeText(document.getElementById('log-box').innerText)
@@ -1273,54 +1446,23 @@ function toggleStream() {
 
 // ─── Connections ──────────────────────────────────────────────────────────────
 async function loadConnections() {
-  const r = await apiJ('GET', '/api/connections?n=200');
+  const r = await apiJ('GET', '/api/connections?n=500');
   if (!r) return;
-  renderConnections(r.connections || []);
-}
-
-function connRowHtml(c) {
-  const cls = c.outbound === 'proxy' ? 'route-proxy' : c.outbound === 'block' ? 'route-block' : 'route-direct';
-  const label = c.outbound === 'proxy' ? '🔒 VPN' : c.outbound === 'block' ? '✕ Блок' : '→ Direct';
-  const ts = (c.ts || '').replace(/^\d{4}\//, '').replace('/', '-');
-  const dst = escH((c.dst || '') + ':' + (c.dport || ''));
-  return `<td style="color:var(--muted);font-size:11px">${escH(ts)}</td>
-    <td class="monospace" style="font-size:11px;color:var(--muted)">${escH(c.src || '')}</td>
-    <td class="monospace" style="font-size:11px" title="${dst}">${dst}</td>
-    <td><span class="badge badge-gray" style="padding:1px 6px">${escH(c.proto || '')}</span></td>
-    <td class="${cls}" style="font-size:12px">${label}</td>`;
-}
-
-function renderConnections(conns) {
-  const tbody = document.getElementById('conn-tbody');
-  if (!tbody) return;
-  const countEl = document.getElementById('conn-count');
-  if (!conns.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Нет соединений в логе xray. Убедитесь, что xray-proxy запущен.</td></tr>';
-    if (countEl) countEl.textContent = '';
-    return;
-  }
-  tbody.innerHTML = conns.map(c => `<tr>${connRowHtml(c)}</tr>`).join('');
-  if (countEl) countEl.textContent = `${conns.length} записей`;
+  _allConns = r.connections || [];
+  renderConns();
 }
 
 function prependConnRow(c) {
-  const tbody = document.getElementById('conn-tbody');
-  if (!tbody) return;
-  // Clear placeholder row
-  if (tbody.rows.length === 1 && tbody.rows[0].cells[0]?.colSpan > 1) tbody.innerHTML = '';
-  const tr = document.createElement('tr');
-  tr.innerHTML = connRowHtml(c);
-  tbody.insertBefore(tr, tbody.firstChild);
-  while (tbody.rows.length > MAX_CONN_ROWS) tbody.removeChild(tbody.lastChild);
-  const countEl = document.getElementById('conn-count');
-  if (countEl) countEl.textContent = `${tbody.rows.length} записей`;
+  _allConns.unshift(c);
+  if (_allConns.length > 2000) _allConns.length = 2000;
+  renderConns();
 }
 
 function clearConns() {
-  const tbody = document.getElementById('conn-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Очищено.</td></tr>';
-  const countEl = document.getElementById('conn-count');
-  if (countEl) countEl.textContent = '';
+  _allConns = [];
+  renderConns();
+  const statsEl = document.getElementById('conn-stats');
+  if (statsEl) statsEl.innerHTML = '';
 }
 
 function toggleConnStream() {
@@ -1379,6 +1521,269 @@ async function factoryReset() {
   const r = await apiJ('POST', '/api/factory-reset');
   if (r?.ok) { toast('Настройки сброшены. Перезайдите.'); setTimeout(doLogout, 1500); }
   else toast('Ошибка', false);
+}
+
+// ─── Route Tester ─────────────────────────────────────────────────────────────
+async function runRouteTest() {
+  const input = document.getElementById('rt-input');
+  const btn   = document.getElementById('rt-btn');
+  const out   = document.getElementById('rt-result');
+  const target = input.value.trim();
+  if (!target) return;
+  btn.disabled = true; btn.textContent = '…';
+  out.innerHTML = '';
+  const r = await apiJ('POST', '/api/route-test', { target });
+  btn.disabled = false; btn.textContent = 'Проверить';
+  if (!r) return;
+  if (r.error) {
+    out.innerHTML = `<div class="route-result error"><div class="r-out">⚠ Ошибка</div>
+      <div class="r-rule">${escHtml(r.error)}</div></div>`;
+    return;
+  }
+  const ob   = r.outbound || '?';
+  const cls  = ob === 'direct' ? 'direct' : 'proxy';
+  const icon = ob === 'direct' ? '🟢 Напрямую' : '🔵 Через VPN';
+  const ips  = r.resolved_ips?.length ? `Resolved: ${r.resolved_ips.join(', ')}` : '';
+  out.innerHTML = `<div class="route-result ${cls}">
+    <div class="r-out">${icon}</div>
+    <div class="r-rule">Правило: <strong>${escHtml(r.matched_rule || '—')}</strong></div>
+    <div class="r-rule" style="margin-top:3px">${escHtml(r.note || '')}</div>
+    ${ips ? `<div class="r-ips">${escHtml(ips)}</div>` : ''}
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Custom Rules ─────────────────────────────────────────────────────────────
+let _rulesData = { always_direct: [], always_vpn: [] };
+
+async function loadRules() {
+  const r = await apiJ('GET', '/api/custom-rules');
+  if (!r) return;
+  _rulesData = r;
+  renderRulesList('direct', r.always_direct || []);
+  renderRulesList('vpn',    r.always_vpn    || []);
+}
+
+function renderRulesList(type, rules) {
+  const el = document.getElementById(`rules-${type}-list`);
+  if (!el) return;
+  if (!rules.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0">Нет правил</div>';
+    return;
+  }
+  el.innerHTML = rules.map((r, i) => `
+    <div class="rule-tag">
+      <span class="r-val">${escHtml(r)}</span>
+      <button class="r-del" onclick="removeRule('${type}',${i})" title="Удалить">×</button>
+    </div>`).join('');
+}
+
+function addRule(type) {
+  const inputId = `rule-${type}-input`;
+  const errId   = `rule-${type}-err`;
+  const val = document.getElementById(inputId).value.trim();
+  document.getElementById(errId).textContent = '';
+  if (!val) return;
+  const list = type === 'direct' ? _rulesData.always_direct : _rulesData.always_vpn;
+  if (list.includes(val)) {
+    document.getElementById(errId).textContent = 'Правило уже добавлено'; return;
+  }
+  // Basic client-side validation (mirrors server)
+  const ok = /^(domain:|full:|keyword:|regexp:)/.test(val) ||
+             /^\d+\.\d+\.\d+\.\d+(\/\d+)?$/.test(val) ||
+             /^[a-zA-Z0-9.\-]+(\/\d+)?$/.test(val);
+  if (!ok) {
+    document.getElementById(errId).textContent = 'Неверный формат'; return;
+  }
+  list.push(val);
+  renderRulesList(type, list);
+  document.getElementById(inputId).value = '';
+}
+
+function removeRule(type, idx) {
+  const list = type === 'direct' ? _rulesData.always_direct : _rulesData.always_vpn;
+  list.splice(idx, 1);
+  renderRulesList(type, list);
+}
+
+async function saveRules() {
+  const res = document.getElementById('rules-result');
+  res.textContent = 'Сохранение…'; res.className = 'text-muted';
+  const r = await apiJ('PUT', '/api/custom-rules', _rulesData);
+  if (r?.ok) {
+    res.textContent = '✓ Сохранено'; res.className = 'text-green';
+    toast('Правила применены');
+  } else {
+    res.textContent = '✕ ' + (r?.error || 'Ошибка'); res.className = 'text-red';
+    toast(r?.error || 'Ошибка', false);
+  }
+  setTimeout(() => res.textContent = '', 4000);
+}
+
+// ─── Snapshots ────────────────────────────────────────────────────────────────
+async function loadSnapshots() {
+  const el = document.getElementById('snap-list');
+  if (!el) return;
+  const r = await apiJ('GET', '/api/snapshots');
+  if (!r) return;
+  const snaps = r.snapshots || [];
+  if (!snaps.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Снапшотов нет</div>';
+    return;
+  }
+  const reasonLabels = {
+    pre_vpn_key_change: 'Смена VPN-ключа', pre_profile_change: 'Смена профиля',
+    pre_aaplimg_toggle: 'Переключение Apple CDN', pre_custom_rules_change: 'Смена правил',
+    pre_settings_import: 'Импорт настроек', pre_factory_reset: 'Сброс',
+    pre_config_change: 'Изменение конфига', pre_vpn_key_delete: 'Удаление ключа',
+  };
+  el.innerHTML = snaps.map(s => {
+    const ts  = new Date(s.timestamp).toLocaleString('ru-RU', {timeZone:'Europe/Moscow'});
+    const lbl = reasonLabels[s.reason] || s.reason.replace(/^pre_/, '');
+    return `<div class="snap-item">
+      <div class="snap-meta">
+        <div class="snap-reason">${escHtml(lbl)}</div>
+        <div class="snap-ts">${ts} · профиль: ${escHtml(s.profile)}</div>
+        <div class="snap-id">${escHtml(s.id)}</div>
+      </div>
+      ${s.has_vpn ? '<span class="snap-vpn">VPN</span>' : ''}
+      <button class="btn btn-secondary btn-sm" onclick="restoreSnapshot('${s.id}')">↩ Откатить</button>
+    </div>`;
+  }).join('');
+}
+
+async function restoreSnapshot(id) {
+  if (!confirm(`Откатить к снапшоту ${id}?\nТекущая конфигурация будет сохранена в новый снапшот.`)) return;
+  const r = await apiJ('POST', `/api/snapshots/restore/${id}`);
+  if (r?.ok) {
+    toast('Откат выполнен'); refreshStatus(); loadSnapshots();
+  } else {
+    toast(r?.message || 'Ошибка отката', false);
+  }
+}
+
+// ─── Devices ──────────────────────────────────────────────────────────────────
+async function loadDevices() {
+  const tbody = document.getElementById('dev-tbody');
+  if (!tbody) return;
+  const r = await apiJ('GET', '/api/devices');
+  if (!r) return;
+  const devs = r.devices || [];
+  if (!devs.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">Устройства не найдены</td></tr>';
+    return;
+  }
+  tbody.innerHTML = devs.map(d => `
+    <tr>
+      <td class="monospace">${escHtml(d.ip)}</td>
+      <td class="dev-mac">${escHtml(d.mac || '—')}</td>
+      <td><span class="badge ${d.state==='REACHABLE'?'badge-green':'badge-gray'}" style="font-size:11px">${escHtml(d.state)}</span></td>
+      <td><input class="dev-name-input" value="${escHtml(d.name||'')}" placeholder="Имя устройства"
+           data-ip="${escHtml(d.ip)}"
+           onblur="saveDeviceName(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+    </tr>`).join('');
+}
+
+async function saveDeviceName(input) {
+  const ip   = input.dataset.ip;
+  const name = input.value.trim();
+  const r = await apiJ('POST', `/api/devices/${encodeURIComponent(ip)}/name`, { name });
+  if (r?.ok) {
+    toast(`${ip} → "${name || 'без имени'}"`);
+  } else {
+    toast('Не удалось сохранить имя', false);
+  }
+}
+
+// ─── Connection table: search, filter, export, stats ─────────────────────────
+let _allConns = [];
+
+function renderConns() {
+  const search  = (document.getElementById('conn-search')?.value || '').toLowerCase();
+  const fRoute  = document.getElementById('conn-filter-route')?.value || '';
+  const fProto  = document.getElementById('conn-filter-proto')?.value || '';
+
+  const filtered = _allConns.filter(c => {
+    if (fRoute && c.outbound !== fRoute) return false;
+    if (fProto && c.proto !== fProto)   return false;
+    if (search && !(
+      c.dst.toLowerCase().includes(search) ||
+      c.src.toLowerCase().includes(search) ||
+      c.outbound.toLowerCase().includes(search)
+    )) return false;
+    return true;
+  });
+
+  // Stats
+  const total   = filtered.length;
+  const vpnCnt  = filtered.filter(c => c.outbound === 'proxy').length;
+  const dirCnt  = filtered.filter(c => c.outbound === 'direct').length;
+  const clientCounts = {};
+  const destCounts   = {};
+  filtered.forEach(c => {
+    const src = c.src.replace(/:\d+$/, '');
+    clientCounts[src] = (clientCounts[src] || 0) + 1;
+    destCounts[c.dst]  = (destCounts[c.dst] || 0) + 1;
+  });
+  const topClient = Object.entries(clientCounts).sort((a,b)=>b[1]-a[1])[0];
+  const topDest   = Object.entries(destCounts).sort((a,b)=>b[1]-a[1])[0];
+  const statsEl = document.getElementById('conn-stats');
+  if (statsEl) statsEl.innerHTML = [
+    `<span class="conn-stat">Всего: <span>${total}</span></span>`,
+    `<span class="conn-stat">VPN: <span style="color:var(--accent)">${vpnCnt}</span></span>`,
+    `<span class="conn-stat">Direct: <span style="color:var(--green)">${dirCnt}</span></span>`,
+    topClient ? `<span class="conn-stat">Топ-клиент: <span>${escHtml(topClient[0])} (${topClient[1]})</span></span>` : '',
+    topDest   ? `<span class="conn-stat">Топ-хост: <span>${escHtml(topDest[0])} (${topDest[1]})</span></span>` : '',
+  ].join('');
+
+  // Render (virtual: show max 200 visible rows for performance)
+  const tbody = document.getElementById('conn-tbody');
+  if (!tbody) return;
+  const visible = filtered.slice(0, 200);
+  const countEl = document.getElementById('conn-count');
+  if (countEl) countEl.textContent = `${filtered.length} соединений${filtered.length > 200 ? ' (показаны первые 200)' : ''}`;
+
+  if (!visible.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Нет соединений</td></tr>';
+    return;
+  }
+  tbody.innerHTML = visible.map(c => {
+    const cls = c.outbound === 'proxy' ? 'route-proxy' : c.outbound === 'block' ? 'route-block' : 'route-direct';
+    const lbl = c.outbound === 'proxy' ? 'VPN' : c.outbound === 'block' ? 'Block' : 'Direct';
+    return `<tr>
+      <td class="col-time">${c.ts.split(' ')[1]||c.ts}</td>
+      <td class="col-src">${escHtml(c.src)}</td>
+      <td class="col-dst" title="${escHtml(c.dst)}:${c.dport}">${escHtml(c.dst)}<span class="text-muted">:${c.dport}</span></td>
+      <td class="col-proto">${c.proto}</td>
+      <td class="col-route"><span class="${cls}">${lbl}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function exportConnCSV() {
+  if (!_allConns.length) { toast('Нет данных для экспорта', false); return; }
+  const search = (document.getElementById('conn-search')?.value || '').toLowerCase();
+  const fRoute = document.getElementById('conn-filter-route')?.value || '';
+  const fProto = document.getElementById('conn-filter-proto')?.value || '';
+  const rows = _allConns.filter(c => {
+    if (fRoute && c.outbound !== fRoute) return false;
+    if (fProto && c.proto !== fProto)   return false;
+    if (search && !(c.dst.toLowerCase().includes(search) ||
+                    c.src.toLowerCase().includes(search))) return false;
+    return true;
+  });
+  const csv = ['Time,Source,Destination,Port,Proto,Route',
+    ...rows.map(c => `${c.ts},${c.src},${c.dst},${c.dport},${c.proto},${c.outbound}`)
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `connections_${new Date().toISOString().slice(0,16)}.csv`;
+  a.click();
+  toast('CSV экспортирован');
 }
 
 // ─── Apple CDN override ───────────────────────────────────────────────────────
