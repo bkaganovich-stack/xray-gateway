@@ -1413,8 +1413,8 @@ function renderLogs(text) {
   }).join('');
   box.scrollTop = box.scrollHeight;
 }
-function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-const escHtml = escH;  // alias
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escHtml(s) { return escH(s); }
 function clearLogs() { document.getElementById('log-box').innerHTML = ''; }
 function copyLogs() {
   navigator.clipboard.writeText(document.getElementById('log-box').innerText)
@@ -1550,10 +1550,6 @@ async function runRouteTest() {
     <div class="r-rule" style="margin-top:3px">${escHtml(r.note || '')}</div>
     ${ips ? `<div class="r-ips">${escHtml(ips)}</div>` : ''}
   </div>`;
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ─── Custom Rules ─────────────────────────────────────────────────────────────
