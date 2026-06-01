@@ -585,21 +585,6 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
             <div id="disk-bar" class="res-bar disk" style="width:0%;height:100%;border-radius:4px"></div>
           </div>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-top:14px;
-                    padding-top:14px;border-top:1px solid var(--border)">
-          <div>
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;
-                        letter-spacing:0.4px;margin-bottom:4px">Занято</div>
-            <div id="disk-used-val" style="font-size:22px;font-weight:700;
-                                           color:var(--orange)">—</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;
-                        letter-spacing:0.4px;margin-bottom:4px">Свободно</div>
-            <div id="disk-free-val" style="font-size:22px;font-weight:700;
-                                           color:var(--green)">—</div>
-          </div>
-        </div>
       </div>
 
       <div class="card">
@@ -1102,24 +1087,13 @@ function updateDiskUI(disk) {
   if (!disk.total) return;
   const pct = Math.min(100, Math.round(disk.used / disk.total * 100));
   const lbl = document.getElementById('disk-label');
-  if (lbl) lbl.textContent = `${fmtBytes(disk.used)} из ${fmtBytes(disk.total)}`;
+  if (lbl) lbl.textContent = `${fmtBytes(disk.used)} используется из ${fmtBytes(disk.total)} (свободно: ${fmtBytes(disk.free)})`;
   const pctEl = document.getElementById('disk-pct');
   if (pctEl) pctEl.textContent = pct + '%';
   const bar = document.getElementById('disk-bar');
   if (bar) {
     bar.style.width = pct + '%';
     bar.style.background = pct > 90 ? 'var(--red)' : pct > 75 ? 'var(--yellow)' : 'var(--orange)';
-  }
-  const usedEl = document.getElementById('disk-used-val');
-  if (usedEl) usedEl.textContent = fmtBytes(disk.used);
-  const freeEl = document.getElementById('disk-free-val');
-  if (freeEl) {
-    freeEl.textContent = fmtBytes(disk.free);
-    // Turn free space red if critically low (< 10% or < 1 GB)
-    const freeRatio = disk.free / disk.total;
-    freeEl.style.color = freeRatio < 0.1 ? 'var(--red)'
-                       : freeRatio < 0.25 ? 'var(--yellow)'
-                       : 'var(--green)';
   }
 }
 
