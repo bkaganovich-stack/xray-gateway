@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Xray Proxy Gateway — Web Management Interface v1.5.0"""
+"""Xray Proxy Gateway — Web Management Interface v1.6.0"""
 
 import asyncio, base64, fcntl, hashlib, hmac, io, ipaddress, json, os, pty
 import re, shutil, signal, socket, struct, subprocess, tarfile, termios, time
@@ -9,7 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
+
+# ── Bootstrap db + features (import before app creation) ─────────────────────
+import db as _db
+import features as _ft
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, WebSocket, WebSocketDisconnect
@@ -30,9 +34,15 @@ DNS_CONF  = Path("/etc/dnsmasq.d/gateway.conf")
 MAX_SNAPSHOTS   = 15
 ALERT_LOG_SIZE  = 100   # keep last N alert events in memory
 
-# ── Default settings (v1.5) ────────────────────────────────────────────────────
+# Wire features module paths after BASE is defined
+def _wire_features() -> None:
+    _db.set_db_path(CFG_DIR / "gateway.db")
+    _ft.BASE    = BASE
+    _ft.CFG_DIR = CFG_DIR
+
+# ── Default settings (v1.6) ────────────────────────────────────────────────────
 DEFAULT_SETTINGS: dict = {
-    "version":      "1.5.0",
+    "version":      "1.6.0",
     "auth":         {"username": "admin",
                      "password_hash": hashlib.sha256(b"admin").hexdigest()},
     # VPN: single key kept for migration compatibility; canonical list in vpn_servers
@@ -62,6 +72,34 @@ DEFAULT_SETTINGS: dict = {
                          "disk_high", "all_vpn_unavailable", "login_failed"],
         "cooldown_min": 30,
     },
+    # v1.6 additions ─────────────────────────────────────────────────────────
+    # Device groups: [{id, name, description, routing_policy, devices:[keys]}]
+    "groups":        [],
+    # Subscriptions: [{id, name, url, type, enabled, schedule, last_update,
+    #                  last_error, rule_count}]
+    "subscriptions": [],
+    # Adblock DNS
+    "adblock": {
+        "enabled":         False,
+        "use_starter_list": True,
+        "custom_rules":    [],
+        "allowlist":       [],
+    },
+    # Scheduler tasks: [{id, name, type, enabled, schedule, last_run_ts,
+    #                    last_result, last_error}]
+    "scheduler_tasks": [],
+    # Terminal mode
+    "terminal": {
+        "mode":             "full",  # disabled|diagnostic|allowlist|full
+        "allowlist_extra":  [],
+    },
+    # Analytics
+    "analytics": {
+        "enabled":         True,
+        "retention_days":  30,
+    },
+    # Update history stored in SQLite; this just holds last-check cache
+    "update_cache": {},
 }
 
 # ── In-memory alert state ──────────────────────────────────────────────────────
@@ -93,16 +131,13 @@ def _migrate_settings(s: dict) -> dict:
     # Fill missing keys from defaults
     for k, v in DEFAULT_SETTINGS.items():
         s.setdefault(k, v)
-    if "dns" not in s:
-        s["dns"] = dict(DEFAULT_SETTINGS["dns"])
-    else:
-        for k, v in DEFAULT_SETTINGS["dns"].items():
-            s["dns"].setdefault(k, v)
-    if "alerts" not in s:
-        s["alerts"] = dict(DEFAULT_SETTINGS["alerts"])
-    else:
-        for k, v in DEFAULT_SETTINGS["alerts"].items():
-            s["alerts"].setdefault(k, v)
+    # Deep-merge nested dicts
+    for nested_key in ("dns", "alerts", "adblock", "terminal", "analytics"):
+        if nested_key not in s:
+            s[nested_key] = dict(DEFAULT_SETTINGS[nested_key])
+        else:
+            for k, v in DEFAULT_SETTINGS[nested_key].items():
+                s[nested_key].setdefault(k, v)
     s.setdefault("version", VERSION)
     s["custom_rules"].setdefault("always_direct", [])
     s["custom_rules"].setdefault("always_vpn", [])
@@ -445,6 +480,24 @@ def _build_device_rules(settings: dict, final: str) -> list[dict]:
         rules.extend(_device_policy_rules(ips, policy, final))
     return rules
 
+def _build_subscription_rules(settings: dict, final: str) -> list[dict]:
+    """Inject subscription rules into xray config."""
+    sub_rules = _db.get_all_subscription_rules_by_type(settings)
+    result: list[dict] = []
+    # direct subscriptions
+    for r in sub_rules.get("direct", []):
+        pass  # will batch below
+    # Batch by type
+    for sub in settings.get("subscriptions", []):
+        if not sub.get("enabled"):
+            continue
+        t = sub.get("type", "direct")
+        if t not in ("direct", "vpn", "block"):
+            continue
+        outbound = "direct" if t == "direct" else ("block" if t == "block" else final)
+        result.extend(_ft.subscription_rules_to_xray(sub["id"], t, outbound))
+    return result
+
 # ── Xray Config Builder ────────────────────────────────────────────────────────
 def _get_active_vpn_outbound(settings: dict) -> tuple[list, bool, Optional[str]]:
     """Return (outbounds, has_proxy, proxy_server_ip) for active VPN server."""
@@ -494,6 +547,10 @@ def build_xray_config(settings: dict) -> dict:
         *_rules_to_xray_entry(custom.get("always_vpn", []),    final),
         # Per-device policies (override global profile)
         *_build_device_rules(settings, final),
+        # Per-group policies (devices with inherit policy that belong to a group)
+        *_ft.build_group_policy_rules(settings, final),
+        # Subscription rules (direct/vpn/block)
+        *_build_subscription_rules(settings, final),
     ]
 
     if profile == "blocked_only":
@@ -588,10 +645,21 @@ def build_dnsmasq_conf(dns: dict) -> str:
         lines.append(f"address=/{rec['hostname']}/{rec['ip']}")
     return "\n".join(lines) + "\n"
 
-def apply_dns_config(dns: dict) -> tuple[bool, str]:
-    """Write dnsmasq config and restart. Returns (ok, error)."""
+def build_dnsmasq_conf_full(settings: dict) -> str:
+    """Build full dnsmasq config including adblock rules."""
+    base = build_dnsmasq_conf(settings.get("dns", DEFAULT_SETTINGS["dns"]))
+    adblock_lines = _ft.build_adblock_dnsmasq_lines(settings)
+    if adblock_lines:
+        base += "\n# Adblock rules\n" + "\n".join(adblock_lines) + "\n"
+    return base
+
+def apply_dns_config(dns: dict, settings: Optional[dict] = None) -> tuple[bool, str]:
+    """Write dnsmasq config (with optional adblock) and restart. Returns (ok, error)."""
     try:
-        conf = build_dnsmasq_conf(dns)
+        if settings is not None:
+            conf = build_dnsmasq_conf_full(settings)
+        else:
+            conf = build_dnsmasq_conf(dns)
         DNS_CONF.write_text(conf)
         r = subprocess.run(["systemctl", "restart", "dnsmasq"],
                            capture_output=True, text=True, timeout=10)
@@ -1286,10 +1354,58 @@ def _import_dest(arcname: str) -> Optional[Path]:
 # ─────────────────────────────────────────────────────────────────────────────
 app = FastAPI(docs_url=None, redoc_url=None)
 
+async def _scheduler_loop() -> None:
+    """Run enabled scheduled tasks."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            s = load_settings()
+            for task in s.get("scheduler_tasks", []):
+                if not _ft.should_run_now(task):
+                    continue
+                start = time.time()
+                result, detail = await _ft.run_scheduled_task(task, s)
+                duration = time.time() - start
+                _db.log_scheduler_run(task["id"], task.get("name","?"),
+                                      duration, result, detail)
+                # Update last_run in settings
+                s2 = load_settings()
+                for t in s2.get("scheduler_tasks", []):
+                    if t["id"] == task["id"]:
+                        t["last_run_ts"]  = int(time.time())
+                        t["last_result"]  = result
+                        t["last_error"]   = detail if result == "error" else ""
+                save_settings(s2)
+                if result == "error":
+                    fire_alert("scheduler_error",
+                               f"Task {task.get('name','?')}: {detail}")
+        except Exception:
+            pass
+        await asyncio.sleep(60)
+
+async def _analytics_loop() -> None:
+    """Periodically ingest access.log into SQLite analytics."""
+    await asyncio.sleep(30)
+    while True:
+        try:
+            s = load_settings()
+            if s.get("analytics", {}).get("enabled", True):
+                ret = s.get("analytics", {}).get("retention_days", 30)
+                log_path = LOGS / "access.log"
+                await asyncio.get_event_loop().run_in_executor(
+                    None, _ft.ingest_access_log, log_path, ret)
+        except Exception:
+            pass
+        await asyncio.sleep(60)
+
 @app.on_event("startup")
 async def startup_event():
+    _wire_features()
+    _db.init_db()
     asyncio.create_task(_failover_loop())
     asyncio.create_task(_disk_monitor_loop())
+    asyncio.create_task(_scheduler_loop())
+    asyncio.create_task(_analytics_loop())
 
 # ── Pydantic Models ────────────────────────────────────────────────────────────
 class LoginReq(BaseModel):        username: str; password: str
@@ -1903,7 +2019,21 @@ async def factory_reset(u: str = Depends(auth_dep)):
 @app.websocket("/ws/terminal")
 async def terminal_ws(websocket: WebSocket):
     token = websocket.query_params.get("token","") or websocket.cookies.get("token","")
-    if not verify_token(token): await websocket.close(code=4401); return
+    user  = verify_token(token)
+    if not user: await websocket.close(code=4401); return
+
+    s    = load_settings()
+    mode = s.get("terminal", {}).get("mode", "full")
+    extra_allow = s.get("terminal", {}).get("allowlist_extra", [])
+
+    if mode == "disabled":
+        await websocket.accept()
+        await websocket.send_text("\r\n\033[31mТерминал отключён в настройках.\033[0m\r\n")
+        await websocket.close(); return
+
+    session_id = str(_uuid_mod.uuid4())
+    _db.start_terminal_session(session_id, user, mode)
+
     await websocket.accept()
     pid, fd = pty.fork()
     if pid == 0:
@@ -1920,6 +2050,8 @@ async def terminal_ws(websocket: WebSocket):
                     else: break
                 except OSError: break
         except Exception: pass
+    _pending_cmd: list[str] = [""]  # accumulate typed chars for audit
+
     async def ws_to_pty():
         try:
             while True:
@@ -1934,6 +2066,29 @@ async def terminal_ws(websocket: WebSocket):
                         fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH",rows,cols,0,0))
                         continue
                 except Exception: pass
+
+                # Accumulate command for allowlist check (on Enter key)
+                char = raw.decode("utf-8", errors="replace")
+                if char in ("\r", "\n"):
+                    cmd = _pending_cmd[0].strip()
+                    _pending_cmd[0] = ""
+                    if cmd and mode in ("allowlist", "diagnostic"):
+                        allowed, reason = _ft.terminal_command_allowed(cmd, mode, extra_allow)
+                        if not allowed:
+                            msg_bytes = f"\r\n\033[31m[BLOCKED] {reason}\033[0m\r\n".encode()
+                            try: await websocket.send_bytes(msg_bytes)
+                            except Exception: pass
+                            # Don't write to PTY
+                            continue
+                    # Audit log
+                    if cmd:
+                        _db.log_terminal_command(session_id, cmd)
+                else:
+                    if char == "\x7f":  # backspace
+                        _pending_cmd[0] = _pending_cmd[0][:-1]
+                    elif char.isprintable():
+                        _pending_cmd[0] += char
+
                 try: os.write(fd, raw)
                 except OSError: break
         except Exception: pass
@@ -1942,6 +2097,7 @@ async def terminal_ws(websocket: WebSocket):
     try:
         await asyncio.wait([r_task, w_task], return_when=asyncio.FIRST_COMPLETED)
     finally:
+        _db.end_terminal_session(session_id)
         for t in [r_task, w_task]: t.cancel()
         for fn in [lambda: os.kill(pid, signal.SIGTERM),
                    lambda: os.waitpid(pid, os.WNOHANG),
@@ -1950,6 +2106,360 @@ async def terminal_ws(websocket: WebSocket):
             except Exception: pass
         try: await websocket.close()
         except Exception: pass
+
+# ── P3 Pydantic models ────────────────────────────────────────────────────────
+class GroupCreateReq(BaseModel):
+    name: str; description: str = ""; routing_policy: str = "inherit"
+class GroupUpdateReq(BaseModel):
+    name: Optional[str] = None; description: Optional[str] = None
+    routing_policy: Optional[str] = None
+class GroupDevicesReq(BaseModel):
+    devices: list[str]
+class SubscriptionAddReq(BaseModel):
+    name: str; url: str; type: str = "direct"
+    enabled: bool = True; schedule: str = "@weekly"
+class SubscriptionUpdateReq(BaseModel):
+    name: Optional[str] = None; url: Optional[str] = None
+    enabled: Optional[bool] = None; schedule: Optional[str] = None
+class AdblockConfigReq(BaseModel):
+    enabled: bool; use_starter_list: bool = True
+    custom_rules: list[str] = []; allowlist: list[str] = []
+class SchedulerTaskCreateReq(BaseModel):
+    name: str; type: str; enabled: bool = True; schedule: str = "@daily"
+class SchedulerTaskUpdateReq(BaseModel):
+    name: Optional[str] = None; enabled: Optional[bool] = None
+    schedule: Optional[str] = None
+class TerminalSettingsReq(BaseModel):
+    mode: str; allowlist_extra: list[str] = []
+class AnalyticsSettingsReq(BaseModel):
+    enabled: bool; retention_days: int = 30
+
+# ── Device Groups endpoints ───────────────────────────────────────────────────
+@app.get("/api/groups")
+async def get_groups(u: str = Depends(auth_dep)):
+    s = load_settings()
+    # Enrich with device count
+    groups = []
+    for g in s.get("groups", []):
+        groups.append({**g, "device_count": len(g.get("devices", []))})
+    return {"groups": groups}
+
+@app.post("/api/groups")
+async def create_group(req: GroupCreateReq, u: str = Depends(auth_dep)):
+    errs = _ft.validate_group({"name": req.name, "routing_policy": req.routing_policy})
+    if errs: raise HTTPException(400, "; ".join(errs))
+    s = load_settings(); old_s = dict(s)
+    gid = str(_uuid_mod.uuid4())
+    s.setdefault("groups", []).append({
+        "id": gid, "name": req.name.strip(), "description": req.description.strip(),
+        "routing_policy": req.routing_policy, "devices": []})
+    save_settings(s)
+    ok, err = apply_config(s, "group_create", _pre_settings=old_s)
+    return {"ok": ok, "error": err or None, "id": gid}
+
+@app.patch("/api/groups/{gid}")
+async def update_group(gid: str, req: GroupUpdateReq, u: str = Depends(auth_dep)):
+    s = load_settings(); old_s = dict(s)
+    grp = next((g for g in s.get("groups", []) if g["id"] == gid), None)
+    if not grp: raise HTTPException(404, "Group not found")
+    if req.name is not None: grp["name"] = req.name.strip()[:64]
+    if req.description is not None: grp["description"] = req.description.strip()[:256]
+    if req.routing_policy is not None:
+        if req.routing_policy not in _ft.GROUP_POLICIES:
+            raise HTTPException(400, f"Invalid policy")
+        grp["routing_policy"] = req.routing_policy
+    save_settings(s)
+    ok, err = apply_config(s, "group_update", _pre_settings=old_s)
+    return {"ok": ok, "error": err or None}
+
+@app.delete("/api/groups/{gid}")
+async def delete_group(gid: str, u: str = Depends(auth_dep)):
+    s = load_settings(); old_s = dict(s)
+    before = len(s.get("groups", []))
+    s["groups"] = [g for g in s.get("groups", []) if g["id"] != gid]
+    if len(s["groups"]) == before: raise HTTPException(404, "Group not found")
+    save_settings(s)
+    ok, err = apply_config(s, "group_delete", _pre_settings=old_s)
+    return {"ok": ok, "error": err or None}
+
+@app.put("/api/groups/{gid}/devices")
+async def set_group_devices(gid: str, req: GroupDevicesReq, u: str = Depends(auth_dep)):
+    s = load_settings(); old_s = dict(s)
+    grp = next((g for g in s.get("groups", []) if g["id"] == gid), None)
+    if not grp: raise HTTPException(404, "Group not found")
+    grp["devices"] = req.devices[:200]  # cap at 200 devices per group
+    save_settings(s)
+    ok, err = apply_config(s, "group_devices_change", _pre_settings=old_s)
+    return {"ok": ok, "error": err or None}
+
+# ── Subscriptions endpoints ───────────────────────────────────────────────────
+@app.get("/api/subscriptions")
+async def get_subscriptions(u: str = Depends(auth_dep)):
+    s = load_settings()
+    subs = []
+    for sub in s.get("subscriptions", []):
+        subs.append({**sub, "rule_count": _db.count_subscription_rules(sub["id"])})
+    return {"subscriptions": subs}
+
+@app.post("/api/subscriptions")
+async def add_subscription(req: SubscriptionAddReq, u: str = Depends(auth_dep)):
+    if req.type not in _ft.SUBSCRIPTION_TYPES:
+        raise HTTPException(400, f"type must be one of {_ft.SUBSCRIPTION_TYPES}")
+    # Validate URL
+    try:
+        p = urllib.parse.urlparse(req.url)
+        if p.scheme not in ("http", "https"):
+            raise ValueError
+    except Exception:
+        raise HTTPException(400, "Invalid URL")
+    s = load_settings()
+    sid = str(_uuid_mod.uuid4())
+    s.setdefault("subscriptions", []).append({
+        "id": sid, "name": req.name.strip()[:64], "url": req.url.strip(),
+        "type": req.type, "enabled": req.enabled, "schedule": req.schedule,
+        "last_update": None, "last_error": None})
+    save_settings(s)
+    return {"ok": True, "id": sid}
+
+@app.patch("/api/subscriptions/{sid}")
+async def update_subscription(sid: str, req: SubscriptionUpdateReq, u: str = Depends(auth_dep)):
+    s = load_settings()
+    sub = next((x for x in s.get("subscriptions", []) if x["id"] == sid), None)
+    if not sub: raise HTTPException(404, "Subscription not found")
+    if req.name     is not None: sub["name"]     = req.name.strip()[:64]
+    if req.url      is not None: sub["url"]      = req.url.strip()
+    if req.enabled  is not None: sub["enabled"]  = req.enabled
+    if req.schedule is not None: sub["schedule"] = req.schedule
+    save_settings(s)
+    return {"ok": True}
+
+@app.delete("/api/subscriptions/{sid}")
+async def delete_subscription(sid: str, u: str = Depends(auth_dep)):
+    s = load_settings(); old_s = dict(s)
+    before = len(s.get("subscriptions", []))
+    s["subscriptions"] = [x for x in s.get("subscriptions", []) if x["id"] != sid]
+    if len(s["subscriptions"]) == before: raise HTTPException(404, "Not found")
+    _db.delete_subscription_rules(sid)
+    save_settings(s)
+    ok, err = apply_config(s, "subscription_delete", _pre_settings=old_s)
+    return {"ok": ok, "error": err or None}
+
+@app.post("/api/subscriptions/{sid}/update")
+async def refresh_subscription(sid: str, u: str = Depends(auth_dep)):
+    s = load_settings()
+    sub = next((x for x in s.get("subscriptions", []) if x["id"] == sid), None)
+    if not sub: raise HTTPException(404, "Not found")
+    loop = asyncio.get_event_loop()
+    try:
+        text = await loop.run_in_executor(None, _ft.fetch_subscription, sub["url"])
+        rules, errs = _ft.parse_subscription_content(text, sub.get("type","direct"))
+        dry_run = {"add": len(rules), "remove": _db.count_subscription_rules(sid),
+                   "parse_errors": errs}
+    except Exception as e:
+        # Update error state
+        s2 = load_settings()
+        for x in s2.get("subscriptions", []):
+            if x["id"] == sid:
+                x["last_error"] = str(e)[:200]
+        save_settings(s2)
+        return {"ok": False, "error": str(e)[:200]}
+
+    # Apply
+    _db.replace_subscription_rules(sid, rules)
+    s2 = load_settings(); old_s = dict(s2)
+    for x in s2.get("subscriptions", []):
+        if x["id"] == sid:
+            x["last_update"] = datetime.now(timezone.utc).isoformat()
+            x["last_error"]  = None
+    save_settings(s2)
+    ok, err = apply_config(s2, "subscription_update", _pre_settings=old_s)
+    return {"ok": ok, "error": err or None, "rule_count": len(rules),
+            "dry_run": dry_run, "parse_errors": errs}
+
+# ── Adblock endpoints ─────────────────────────────────────────────────────────
+@app.get("/api/adblock")
+async def get_adblock(u: str = Depends(auth_dep)):
+    s = load_settings()
+    cfg = s.get("adblock", DEFAULT_SETTINGS["adblock"])
+    lines = _ft.build_adblock_dnsmasq_lines(s)
+    return {**cfg, "total_blocked_domains": len(lines)}
+
+@app.put("/api/adblock")
+async def set_adblock(req: AdblockConfigReq, u: str = Depends(auth_dep)):
+    s = load_settings(); old_s = dict(s)
+    s["adblock"] = {"enabled": req.enabled, "use_starter_list": req.use_starter_list,
+                    "custom_rules": req.custom_rules[:500],
+                    "allowlist": req.allowlist[:200]}
+    save_settings(s)
+    ok, err = apply_dns_config(s.get("dns", {}), settings=s)
+    if ok: ok2, err2 = apply_config(s, "adblock_change", _pre_settings=old_s)
+    else:  ok2, err2 = ok, err
+    return {"ok": ok and ok2, "error": (err or err2) or None}
+
+@app.post("/api/adblock/test")
+async def test_adblock_domain(req: RouteTestReq, u: str = Depends(auth_dep)):
+    domain = req.target.strip()
+    if not re.match(r'^[a-zA-Z0-9.\-]+$', domain):
+        raise HTTPException(400, "Invalid domain")
+    s = load_settings()
+    blocked, reason = _ft.is_domain_blocked(domain, s)
+    return {"domain": domain, "blocked": blocked, "reason": reason}
+
+# ── Scheduler endpoints ───────────────────────────────────────────────────────
+@app.get("/api/scheduler")
+async def get_scheduler(u: str = Depends(auth_dep)):
+    s = load_settings()
+    tasks = []
+    for t in s.get("scheduler_tasks", []):
+        nxt = _ft.next_run_ts(t)
+        history = _db.list_scheduler_history(t["id"], limit=1)
+        tasks.append({**t, "next_run_ts": nxt, "recent": history[0] if history else None})
+    return {"tasks": tasks}
+
+@app.post("/api/scheduler")
+async def create_task(req: SchedulerTaskCreateReq, u: str = Depends(auth_dep)):
+    if req.type not in _ft.SCHEDULER_TASK_TYPES:
+        raise HTTPException(400, f"type must be one of {_ft.SCHEDULER_TASK_TYPES}")
+    s = load_settings()
+    tid = str(_uuid_mod.uuid4())
+    s.setdefault("scheduler_tasks", []).append({
+        "id": tid, "name": req.name.strip()[:64],
+        "type": req.type, "enabled": req.enabled,
+        "schedule": req.schedule, "last_run_ts": 0,
+        "last_result": "", "last_error": ""})
+    save_settings(s)
+    return {"ok": True, "id": tid}
+
+@app.patch("/api/scheduler/{tid}")
+async def update_task(tid: str, req: SchedulerTaskUpdateReq, u: str = Depends(auth_dep)):
+    s = load_settings()
+    task = next((t for t in s.get("scheduler_tasks", []) if t["id"] == tid), None)
+    if not task: raise HTTPException(404, "Task not found")
+    if req.name    is not None: task["name"]    = req.name.strip()[:64]
+    if req.enabled is not None: task["enabled"] = req.enabled
+    if req.schedule is not None: task["schedule"] = req.schedule
+    save_settings(s); return {"ok": True}
+
+@app.delete("/api/scheduler/{tid}")
+async def delete_task(tid: str, u: str = Depends(auth_dep)):
+    s = load_settings()
+    before = len(s.get("scheduler_tasks", []))
+    s["scheduler_tasks"] = [t for t in s.get("scheduler_tasks", []) if t["id"] != tid]
+    if len(s["scheduler_tasks"]) == before: raise HTTPException(404, "Task not found")
+    save_settings(s); return {"ok": True}
+
+@app.post("/api/scheduler/{tid}/run")
+async def run_task_now(tid: str, u: str = Depends(auth_dep)):
+    s = load_settings()
+    task = next((t for t in s.get("scheduler_tasks", []) if t["id"] == tid), None)
+    if not task: raise HTTPException(404, "Task not found")
+    start = time.time()
+    result, detail = await _ft.run_scheduled_task(task, s)
+    duration = time.time() - start
+    _db.log_scheduler_run(tid, task.get("name","?"), duration, result, detail)
+    return {"ok": result == "ok", "result": result, "detail": detail}
+
+@app.get("/api/scheduler/{tid}/history")
+async def get_task_history(tid: str, u: str = Depends(auth_dep)):
+    return {"history": _db.list_scheduler_history(tid, limit=20)}
+
+# ── Terminal settings endpoints ───────────────────────────────────────────────
+@app.get("/api/terminal/settings")
+async def get_terminal_settings(u: str = Depends(auth_dep)):
+    s = load_settings()
+    cfg = s.get("terminal", {"mode": "full", "allowlist_extra": []})
+    return {**cfg, "builtin_allowlist": _ft.TERMINAL_BUILTIN_ALLOWLIST}
+
+@app.put("/api/terminal/settings")
+async def set_terminal_settings(req: TerminalSettingsReq, u: str = Depends(auth_dep)):
+    if req.mode not in _ft.TERMINAL_MODES:
+        raise HTTPException(400, f"mode must be one of {_ft.TERMINAL_MODES}")
+    s = load_settings()
+    s["terminal"] = {"mode": req.mode, "allowlist_extra": req.allowlist_extra[:100]}
+    save_settings(s); return {"ok": True}
+
+@app.get("/api/terminal/audit")
+async def get_terminal_audit(u: str = Depends(auth_dep)):
+    return {"sessions": _db.list_terminal_sessions(limit=50)}
+
+# ── Analytics endpoints ───────────────────────────────────────────────────────
+@app.get("/api/analytics/summary")
+async def analytics_summary(hours: int = 24, u: str = Depends(auth_dep)):
+    hours = max(1, min(hours, 168))  # 1h – 1 week
+    loop  = asyncio.get_event_loop()
+    data  = await loop.run_in_executor(None, _db.get_traffic_summary, hours)
+    return data
+
+@app.get("/api/analytics/series")
+async def analytics_series(hours: int = 24, u: str = Depends(auth_dep)):
+    hours = max(1, min(hours, 168))
+    loop  = asyncio.get_event_loop()
+    data  = await loop.run_in_executor(None, _db.get_hourly_series, hours)
+    return {"series": data}
+
+@app.get("/api/analytics/settings")
+async def get_analytics_settings(u: str = Depends(auth_dep)):
+    s = load_settings()
+    return s.get("analytics", DEFAULT_SETTINGS["analytics"])
+
+@app.put("/api/analytics/settings")
+async def set_analytics_settings(req: AnalyticsSettingsReq, u: str = Depends(auth_dep)):
+    if req.retention_days < 1 or req.retention_days > 365:
+        raise HTTPException(400, "retention_days must be 1–365")
+    s = load_settings()
+    s["analytics"] = {"enabled": req.enabled, "retention_days": req.retention_days}
+    save_settings(s); return {"ok": True}
+
+# ── Update Center endpoints ───────────────────────────────────────────────────
+@app.get("/api/updates/check")
+async def check_updates(u: str = Depends(auth_dep)):
+    loop = asyncio.get_event_loop()
+    xray_ver = get_xray_core_version()
+    xray_info, gw_info = await asyncio.gather(
+        loop.run_in_executor(None, _ft.check_xray_update, xray_ver),
+        loop.run_in_executor(None, _ft.check_gateway_update, VERSION),
+    )
+    # Cache result
+    s = load_settings()
+    s["update_cache"] = {"ts": int(time.time()), "xray": xray_info, "gateway": gw_info}
+    save_settings(s)
+    return {"xray": xray_info, "gateway": gw_info,
+            "checked_at": datetime.now(timezone.utc).isoformat()}
+
+@app.get("/api/updates/cached")
+async def get_cached_updates(u: str = Depends(auth_dep)):
+    s = load_settings()
+    return s.get("update_cache", {})
+
+@app.post("/api/updates/xray-core")
+async def update_xray_core(u: str = Depends(auth_dep)):
+    """Update xray-core binary. Requires explicit confirmation via ?confirm=1."""
+    # This endpoint only performs the update — caller must confirm in UI
+    s = load_settings()
+    cached = s.get("update_cache", {}).get("xray", {})
+    tag = cached.get("latest")
+    if not tag:
+        raise HTTPException(400, "Run /api/updates/check first")
+    if not cached.get("update_available", False):
+        return {"ok": True, "message": "Already up to date"}
+    current_ver = get_xray_core_version()
+    # Snapshot before update
+    snap_id = create_snapshot("pre_xray_update")
+    loop = asyncio.get_event_loop()
+    ok, msg = await loop.run_in_executor(
+        None, _ft.download_and_install_xray, f"v{tag}")
+    if ok:
+        subprocess.run(["systemctl", "restart", "xray-proxy"], capture_output=True)
+        get_xray_core_version._cache = tag  # type: ignore[attr-defined]
+        _db.log_update("xray-core", current_ver, tag, "ok", msg)
+        return {"ok": True, "message": msg, "snapshot_id": snap_id}
+    else:
+        _db.log_update("xray-core", current_ver, tag, "error", msg)
+        return {"ok": False, "error": msg, "snapshot_id": snap_id}
+
+@app.get("/api/updates/history")
+async def get_update_history(u: str = Depends(auth_dep)):
+    return {"history": _db.list_update_history(limit=20)}
 
 # ── SPA ────────────────────────────────────────────────────────────────────────
 @app.get("/{full_path:path}")

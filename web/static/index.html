@@ -462,13 +462,21 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
         <span class="ico">🗺️</span> Профиль маршрутов</div>
       <div class="nav-link" onclick="showPage('rules',this)">
         <span class="ico">📝</span> Правила</div>
+      <div class="nav-link" onclick="showPage('groups',this)">
+        <span class="ico">🗂️</span> Группы</div>
+      <div class="nav-link" onclick="showPage('subscriptions',this)">
+        <span class="ico">📥</span> Подписки</div>
       <div class="nav-link" onclick="showPage('devices',this)">
         <span class="ico">📡</span> Устройства</div>
       <div class="nav-link" onclick="showPage('dns',this)">
         <span class="ico">🔍</span> DNS</div>
+      <div class="nav-link" onclick="showPage('adblock',this)">
+        <span class="ico">🛡️</span> Adblock</div>
       <div class="nav-link" onclick="showPage('geo',this)">
         <span class="ico">🌍</span> Гео-базы</div>
       <hr class="nav-sep">
+      <div class="nav-link" onclick="showPage('analytics',this)">
+        <span class="ico">📊</span> Аналитика</div>
       <div class="nav-link" onclick="showPage('logs',this)">
         <span class="ico">📋</span> Логи</div>
       <div class="nav-link" onclick="showPage('system',this)">
@@ -476,6 +484,10 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       <div class="nav-link" onclick="showPage('router',this)">
         <span class="ico">🌐</span> Настройка роутера</div>
       <hr class="nav-sep">
+      <div class="nav-link" onclick="showPage('scheduler',this)">
+        <span class="ico">⏱️</span> Планировщик</div>
+      <div class="nav-link" onclick="showPage('updates',this)">
+        <span class="ico">🔄</span> Обновления</div>
       <div class="nav-link" onclick="showPage('alerts',this)">
         <span class="ico">🔔</span> Уведомления</div>
       <div class="nav-link" onclick="showPage('settings',this)">
@@ -1120,6 +1132,205 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       </div>
     </div>
 
+    <!-- ── GROUPS ───────────────────────────────────────────────────────── -->
+    <div id="page-groups" class="page">
+      <h2>Группы устройств</h2>
+      <p class="page-desc">Объединяйте устройства в группы для применения общей политики маршрутизации</p>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-primary btn-sm" onclick="showCreateGroup()">+ Создать группу</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadGroups()">🔄 Обновить</button>
+        </div>
+        <div id="groups-list"><div class="text-muted" style="font-size:13px">Загрузка…</div></div>
+      </div>
+      <!-- Create/edit group card (hidden by default) -->
+      <div id="group-edit-card" class="card" style="display:none">
+        <div class="card-title" id="group-edit-title">Новая группа</div>
+        <div class="field"><label>Название</label>
+          <input id="grp-name" type="text" placeholder="Домашние устройства" maxlength="64"></div>
+        <div class="field"><label>Описание</label>
+          <input id="grp-desc" type="text" placeholder="Опционально" maxlength="256"></div>
+        <div class="field"><label>Политика маршрутизации</label>
+          <select id="grp-policy" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%">
+            <option value="inherit">↑ Следует глобальному</option>
+            <option value="always_direct">🟢 Напрямую</option>
+            <option value="always_vpn">🔵 Через VPN</option>
+            <option value="all_except_ru">🌐 Всё кроме РФ</option>
+            <option value="blocked_only">🇷🇺 Только заблок.</option>
+          </select></div>
+        <input type="hidden" id="grp-edit-id">
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveGroup()">✓ Сохранить</button>
+          <button class="btn btn-secondary" onclick="cancelGroupEdit()">Отмена</button>
+          <span id="grp-result" class="text-muted" style="font-size:13px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SUBSCRIPTIONS ─────────────────────────────────────────────────── -->
+    <div id="page-subscriptions" class="page">
+      <h2>Подписки правил</h2>
+      <p class="page-desc">Автоматически импортируйте списки доменов/IP из внешних источников</p>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="loadSubscriptions()">🔄 Обновить</button>
+          <button class="btn btn-primary btn-sm" onclick="toggleSubAddForm()">+ Добавить</button>
+        </div>
+        <div id="sub-add-form" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg3);border-radius:8px">
+          <div class="field" style="margin-bottom:10px"><label>Название</label>
+            <input id="sub-name" type="text" placeholder="AdGuard DNS filter" maxlength="64"></div>
+          <div class="field" style="margin-bottom:10px"><label>URL списка</label>
+            <input id="sub-url" type="text" placeholder="https://…/list.txt"></div>
+          <div style="display:flex;gap:12px;margin-bottom:10px">
+            <div class="field" style="flex:1;margin:0"><label>Тип</label>
+              <select id="sub-type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;width:100%">
+                <option value="direct">🟢 Напрямую</option>
+                <option value="vpn">🔵 Через VPN</option>
+                <option value="block">✕ Блокировать (IP/домен)</option>
+                <option value="adblock">🛡️ Adblock (DNS)</option>
+                <option value="malware">☠️ Malware/Phishing</option>
+              </select></div>
+            <div class="field" style="flex:1;margin:0"><label>Расписание</label>
+              <select id="sub-schedule" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;width:100%">
+                <option value="@hourly">Каждый час</option>
+                <option value="@daily" selected>Ежедневно</option>
+                <option value="@weekly">Еженедельно</option>
+              </select></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary btn-sm" onclick="addSubscription()">Добавить</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleSubAddForm()">Отмена</button>
+          </div>
+        </div>
+        <div id="subscriptions-list"><div class="text-muted" style="font-size:13px">Загрузка…</div></div>
+      </div>
+    </div>
+
+    <!-- ── ADBLOCK ───────────────────────────────────────────────────────── -->
+    <div id="page-adblock" class="page">
+      <h2>Adblock / защита DNS</h2>
+      <p class="page-desc">Блокировка рекламы и вредоносных доменов на уровне DNS</p>
+      <div class="card">
+        <div class="override-row" style="border:none;margin:0;padding:6px 0 14px 0">
+          <div class="override-label">Включить блокировку</div>
+          <label class="toggle"><input type="checkbox" id="adblock-enabled"><span class="slider"></span></label>
+        </div>
+        <div class="override-row" style="padding:8px 0">
+          <div class="override-label">Встроенный список (реклама Google, Facebook, Amazon…)</div>
+          <label class="toggle"><input type="checkbox" id="adblock-starter"><span class="slider"></span></label>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Заблокировано доменов</span>
+          <span id="adblock-total" class="info-val monospace">—</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Тест домена</div>
+        <div style="display:flex;gap:8px">
+          <input id="adblock-test-input" type="text" placeholder="ads.google.com"
+                 style="flex:1" onkeydown="if(event.key==='Enter')testAdblock()">
+          <button class="btn btn-primary" onclick="testAdblock()">Проверить</button>
+        </div>
+        <div id="adblock-test-result" class="mt-4"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Пользовательские правила (по одному домену в строке)</div>
+        <textarea id="adblock-custom" rows="5" placeholder="tracker.example.com"></textarea>
+      </div>
+      <div class="card">
+        <div class="card-title">Список исключений (allowlist)</div>
+        <textarea id="adblock-allow" rows="3" placeholder="trusted.example.com"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveAdblock()">✓ Применить</button>
+        <span id="adblock-result" class="text-muted" style="font-size:13px"></span>
+      </div>
+    </div>
+
+    <!-- ── ANALYTICS ─────────────────────────────────────────────────────── -->
+    <div id="page-analytics" class="page">
+      <h2>Аналитика трафика</h2>
+      <p class="page-desc">Агрегированная статистика из xray access.log</p>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="loadAnalytics(24)">24 ч</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadAnalytics(48)">48 ч</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadAnalytics(168)">7 дней</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportAnalytics()">↓ CSV</button>
+        </div>
+        <div id="analytics-summary" class="status-grid" style="margin-bottom:16px"></div>
+        <div class="card-title">VPN vs Direct по часам</div>
+        <div id="analytics-chart" style="height:120px;position:relative;overflow:hidden"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-title">Топ клиенты</div>
+          <div id="analytics-clients"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Топ назначения</div>
+          <div id="analytics-dests"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCHEDULER ─────────────────────────────────────────────────────── -->
+    <div id="page-scheduler" class="page">
+      <h2>Планировщик</h2>
+      <p class="page-desc">Автоматическое обслуживание: гео-базы, бэкапы, подписки, health checks</p>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="loadScheduler()">🔄 Обновить</button>
+          <button class="btn btn-primary btn-sm" onclick="showCreateTask()">+ Задача</button>
+        </div>
+        <div id="scheduler-list"><div class="text-muted" style="font-size:13px">Загрузка…</div></div>
+      </div>
+      <div id="task-create-card" class="card" style="display:none">
+        <div class="card-title">Новая задача</div>
+        <div class="field"><label>Название</label>
+          <input id="task-name" type="text" placeholder="Еженедельное обновление" maxlength="64"></div>
+        <div style="display:flex;gap:12px">
+          <div class="field" style="flex:1"><label>Тип</label>
+            <select id="task-type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%">
+              <option value="geo_update">🌍 Обновить гео-базы</option>
+              <option value="backup">💾 Бэкап конфигурации</option>
+              <option value="subscription_update">📥 Обновить подписки</option>
+              <option value="health_check">❤️ Health check</option>
+              <option value="log_rotate">🗄️ Ротация логов</option>
+            </select></div>
+          <div class="field" style="flex:1"><label>Расписание</label>
+            <select id="task-schedule" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%">
+              <option value="@hourly">Каждый час</option>
+              <option value="@daily">Ежедневно</option>
+              <option value="@weekly" selected>Еженедельно</option>
+              <option value="@monthly">Ежемесячно</option>
+            </select></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" onclick="createTask()">Создать</button>
+          <button class="btn btn-secondary btn-sm" onclick="cancelCreateTask()">Отмена</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── UPDATES ───────────────────────────────────────────────────────── -->
+    <div id="page-updates" class="page">
+      <h2>Обновления</h2>
+      <p class="page-desc">Проверка и установка обновлений компонентов шлюза</p>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:16px">
+          <button class="btn btn-primary" id="check-updates-btn" onclick="checkUpdates()">🔍 Проверить обновления</button>
+        </div>
+        <div id="updates-content">
+          <div class="text-muted" style="font-size:13px">Нажмите «Проверить» для получения информации об обновлениях.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">История обновлений</div>
+        <div id="update-history-list"><div class="text-muted" style="font-size:13px">Загрузка…</div></div>
+      </div>
+    </div>
+
     <!-- ── ALERTS ───────────────────────────────────────────────────────── -->
     <div id="page-alerts" class="page">
       <h2>Уведомления</h2>
@@ -1295,6 +1506,12 @@ function showPage(name, linkEl) {
   if (name === 'vpn') loadVpnServers();
   if (name === 'dns') { loadDnsSettings(); loadDnsStatus(); }
   if (name === 'alerts') { loadAlertsConfig(); loadAlertLog(); }
+  if (name === 'groups') loadGroups();
+  if (name === 'subscriptions') loadSubscriptions();
+  if (name === 'adblock') loadAdblock();
+  if (name === 'analytics') loadAnalytics(24);
+  if (name === 'scheduler') loadScheduler();
+  if (name === 'updates') { loadUpdateHistory(); loadCachedUpdates(); }
   if (name === 'system') startSysinfoStream(); else stopSysinfoStream();
   if (name === 'terminal') { termInit(); } else { /* leave terminal running in background */ }
 }
@@ -2446,6 +2663,423 @@ async function loadAlertLog() {
       <span class="alert-log-ts">${ts}</span>
       <span class="alert-log-evt">${escHtml(lbl)}</span>
       <span class="alert-log-det">${escHtml(e.detail||'')}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─── Device Groups ────────────────────────────────────────────────────────────
+let _groupEditId = null;
+
+async function loadGroups() {
+  const el = document.getElementById('groups-list'); if (!el) return;
+  const r = await apiJ('GET', '/api/groups');
+  if (!r) return;
+  const groups = r.groups || [];
+  if (!groups.length) {
+    el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0">Нет групп. Создайте первую группу.</div>'; return;
+  }
+  el.innerHTML = groups.map(g => {
+    const pol = POLICY_FULL_LABELS[g.routing_policy] || g.routing_policy;
+    return `<div class="vpn-server-card">
+      <div class="vpn-server-header">
+        <div class="vpn-server-name">${escHtml(g.name)}</div>
+        <span class="badge badge-gray" style="font-size:11px">${escHtml(pol)}</span>
+        <span class="badge badge-gray" style="font-size:11px">${g.device_count} уст-в</span>
+      </div>
+      ${g.description ? `<div class="vpn-server-meta">${escHtml(g.description)}</div>` : ''}
+      <div class="vpn-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editGroup('${g.id}','${escHtml(g.name)}','${escHtml(g.description||'')}','${g.routing_policy}')">✏️ Изменить</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteGroup('${g.id}')">✕ Удалить</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showCreateGroup() {
+  _groupEditId = null;
+  document.getElementById('group-edit-title').textContent = 'Новая группа';
+  document.getElementById('grp-name').value = '';
+  document.getElementById('grp-desc').value = '';
+  document.getElementById('grp-policy').value = 'inherit';
+  document.getElementById('grp-edit-id').value = '';
+  document.getElementById('group-edit-card').style.display = 'block';
+}
+
+function editGroup(id, name, desc, policy) {
+  _groupEditId = id;
+  document.getElementById('group-edit-title').textContent = 'Редактировать группу';
+  document.getElementById('grp-name').value = name;
+  document.getElementById('grp-desc').value = desc;
+  document.getElementById('grp-policy').value = policy;
+  document.getElementById('grp-edit-id').value = id;
+  document.getElementById('group-edit-card').style.display = 'block';
+}
+
+function cancelGroupEdit() {
+  document.getElementById('group-edit-card').style.display = 'none';
+}
+
+async function saveGroup() {
+  const name = document.getElementById('grp-name').value.trim();
+  const desc = document.getElementById('grp-desc').value.trim();
+  const policy = document.getElementById('grp-policy').value;
+  const res = document.getElementById('grp-result');
+  if (!name) { res.textContent = 'Введите название'; res.className = 'text-red'; return; }
+  const id = document.getElementById('grp-edit-id').value;
+  const url = id ? `/api/groups/${id}` : '/api/groups';
+  const method = id ? 'PATCH' : 'POST';
+  res.textContent = 'Сохранение…'; res.className = 'text-muted';
+  const r = await apiJ(method, url, { name, description: desc, routing_policy: policy });
+  if (r?.ok) {
+    res.textContent = '✓'; res.className = 'text-green';
+    cancelGroupEdit(); loadGroups(); toast('Группа сохранена');
+  } else {
+    res.textContent = '✕ ' + escHtml(r?.error || 'Ошибка'); res.className = 'text-red';
+  }
+}
+
+async function deleteGroup(id) {
+  if (!confirm('Удалить группу?')) return;
+  const r = await apiJ('DELETE', `/api/groups/${id}`);
+  if (r?.ok) { loadGroups(); toast('Группа удалена'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+const SUB_TYPE_LABELS = {
+  direct: '🟢 Напрямую', vpn: '🔵 Через VPN',
+  block: '✕ Блокировать', adblock: '🛡️ Adblock', malware: '☠️ Malware',
+};
+
+function toggleSubAddForm() {
+  const f = document.getElementById('sub-add-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadSubscriptions() {
+  const el = document.getElementById('subscriptions-list'); if (!el) return;
+  const r = await apiJ('GET', '/api/subscriptions');
+  if (!r) return;
+  const subs = r.subscriptions || [];
+  if (!subs.length) {
+    el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0">Нет подписок.</div>'; return;
+  }
+  el.innerHTML = subs.map(s => {
+    const tl = SUB_TYPE_LABELS[s.type] || s.type;
+    const upd = s.last_update ? new Date(s.last_update).toLocaleString('ru-RU') : 'никогда';
+    const errHtml = s.last_error ? `<div style="color:var(--red);font-size:11px;margin-top:4px">✕ ${escHtml(s.last_error)}</div>` : '';
+    return `<div class="vpn-server-card ${!s.enabled ? 'disabled-server' : ''}">
+      <div class="vpn-server-header">
+        <div class="vpn-server-name">${escHtml(s.name)}</div>
+        <span class="badge badge-gray" style="font-size:11px">${tl}</span>
+        <span class="badge ${s.enabled ? 'badge-green' : 'badge-gray'}" style="font-size:10px">${s.enabled ? 'Вкл' : 'Выкл'}</span>
+      </div>
+      <div class="vpn-server-meta">${escHtml(s.url.slice(0,60))}… · ${s.rule_count} правил · обновлено: ${upd}</div>
+      ${errHtml}
+      <div class="vpn-actions">
+        <button class="btn btn-primary btn-sm" onclick="refreshSub('${s.id}', this)">↻ Обновить</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleSub('${s.id}', ${!s.enabled})">${s.enabled ? '⏸ Выкл' : '▶ Вкл'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSub('${s.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addSubscription() {
+  const name = document.getElementById('sub-name').value.trim();
+  const url  = document.getElementById('sub-url').value.trim();
+  const type = document.getElementById('sub-type').value;
+  const schedule = document.getElementById('sub-schedule').value;
+  if (!name || !url) { toast('Заполните название и URL', false); return; }
+  const r = await apiJ('POST', '/api/subscriptions', { name, url, type, schedule });
+  if (r?.ok) { toggleSubAddForm(); loadSubscriptions(); toast('Подписка добавлена'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function refreshSub(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  const r = await apiJ('POST', `/api/subscriptions/${id}/update`);
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Обновить'; }
+  if (r?.ok) {
+    toast(`Загружено ${r.rule_count} правил${r.parse_errors?.length ? `, ${r.parse_errors.length} ошибок` : ''}`);
+    loadSubscriptions();
+  } else toast(r?.error || 'Ошибка', false);
+}
+
+async function toggleSub(id, enable) {
+  const r = await apiJ('PATCH', `/api/subscriptions/${id}`, { enabled: enable });
+  if (r?.ok) { loadSubscriptions(); toast(enable ? 'Включено' : 'Выключено'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function deleteSub(id) {
+  if (!confirm('Удалить подписку и все её правила?')) return;
+  const r = await apiJ('DELETE', `/api/subscriptions/${id}`);
+  if (r?.ok) { loadSubscriptions(); toast('Подписка удалена'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+// ─── Adblock ─────────────────────────────────────────────────────────────────
+async function loadAdblock() {
+  const r = await apiJ('GET', '/api/adblock');
+  if (!r) return;
+  document.getElementById('adblock-enabled').checked = !!r.enabled;
+  document.getElementById('adblock-starter').checked = r.use_starter_list !== false;
+  document.getElementById('adblock-custom').value = (r.custom_rules || []).join('\n');
+  document.getElementById('adblock-allow').value  = (r.allowlist || []).join('\n');
+  const tot = document.getElementById('adblock-total');
+  if (tot) tot.textContent = r.total_blocked_domains + ' доменов';
+}
+
+async function saveAdblock() {
+  const res = document.getElementById('adblock-result');
+  res.textContent = 'Применение…'; res.className = 'text-muted';
+  const custom = document.getElementById('adblock-custom').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  const allow  = document.getElementById('adblock-allow').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  const r = await apiJ('PUT', '/api/adblock', {
+    enabled: document.getElementById('adblock-enabled').checked,
+    use_starter_list: document.getElementById('adblock-starter').checked,
+    custom_rules: custom, allowlist: allow,
+  });
+  if (r?.ok) {
+    res.textContent = '✓ Применено'; res.className = 'text-green';
+    toast('Adblock настройки применены'); loadAdblock();
+  } else {
+    res.textContent = '✕ ' + escHtml(r?.error || 'Ошибка'); res.className = 'text-red';
+    toast(r?.error || 'Ошибка', false);
+  }
+  setTimeout(() => res.textContent = '', 5000);
+}
+
+async function testAdblock() {
+  const inp = document.getElementById('adblock-test-input');
+  const out = document.getElementById('adblock-test-result');
+  const domain = inp.value.trim(); if (!domain) return;
+  const r = await apiJ('POST', '/api/adblock/test', { target: domain });
+  if (!r) return;
+  const cls = r.blocked ? 'error' : 'direct';
+  const icon = r.blocked ? '✕ Заблокирован' : '✓ Не заблокирован';
+  out.innerHTML = `<div class="route-result ${cls}">
+    <div class="r-out">${icon}</div>
+    <div class="r-rule">${escHtml(r.reason || '')}</div>
+  </div>`;
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+let _analyticsSummary = null;
+
+async function loadAnalytics(hours) {
+  const sumEl = document.getElementById('analytics-summary'); if (!sumEl) return;
+  const [sum, ser] = await Promise.all([
+    apiJ('GET', `/api/analytics/summary?hours=${hours}`),
+    apiJ('GET', `/api/analytics/series?hours=${hours}`),
+  ]);
+  if (!sum) return;
+  _analyticsSummary = sum;
+  sumEl.innerHTML = [
+    statCard('Всего соед.', sum.total),
+    statCard('Через VPN', sum.vpn, 'var(--accent)'),
+    statCard('Напрямую', sum.direct, 'var(--green)'),
+    statCard('Заблок.', sum.blocked, 'var(--red)'),
+  ].join('');
+
+  // Mini bar chart
+  const chart = document.getElementById('analytics-chart');
+  if (chart && ser?.series?.length) {
+    const maxVal = Math.max(...ser.series.map(b => (b.vpn||0)+(b.direct||0)), 1);
+    chart.innerHTML = `<div style="display:flex;align-items:flex-end;gap:2px;height:100%">` +
+      ser.series.map(b => {
+        const tot = (b.vpn||0) + (b.direct||0);
+        const h = Math.round(tot / maxVal * 100);
+        const vpnH = Math.round((b.vpn||0) / maxVal * 100);
+        return `<div title="${b.hour}: VPN ${b.vpn||0}, Direct ${b.direct||0}"
+          style="flex:1;height:${h}%;min-height:2px;background:var(--accent);border-radius:2px 2px 0 0;position:relative">
+          <div style="position:absolute;bottom:0;left:0;right:0;height:${Math.round((b.direct||0)/Math.max(tot,1)*100)}%;background:var(--green);border-radius:2px 2px 0 0"></div>
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  // Top clients & destinations
+  const cEl = document.getElementById('analytics-clients');
+  if (cEl) cEl.innerHTML = (sum.top_clients || []).map(c =>
+    `<div class="info-row" style="padding:5px 0"><span class="info-key monospace">${escHtml(c.ip)}</span><span class="info-val">${c.count}</span></div>`
+  ).join('') || '<div class="text-muted" style="font-size:12px">Нет данных</div>';
+
+  const dEl = document.getElementById('analytics-dests');
+  if (dEl) dEl.innerHTML = (sum.top_destinations || []).map(d =>
+    `<div class="info-row" style="padding:5px 0"><span class="info-key monospace" style="font-size:11px">${escHtml(d.host.slice(0,40))}</span><span class="info-val">${d.count}</span></div>`
+  ).join('') || '<div class="text-muted" style="font-size:12px">Нет данных</div>';
+}
+
+function statCard(label, val, color) {
+  return `<div class="stat-card"><div class="stat-label">${label}</div>
+    <div class="stat-value" style="font-size:22px;${color?'color:'+color:''}">${val}</div></div>`;
+}
+
+function exportAnalytics() {
+  if (!_analyticsSummary) { toast('Нет данных', false); return; }
+  const csv = ['metric,value',
+    `total,${_analyticsSummary.total}`,
+    `vpn,${_analyticsSummary.vpn}`,
+    `direct,${_analyticsSummary.direct}`,
+    `blocked,${_analyticsSummary.blocked}`,
+    '',
+    'ip,count',
+    ...(_analyticsSummary.top_clients||[]).map(c => `${c.ip},${c.count}`),
+    '', 'host,count',
+    ...(_analyticsSummary.top_destinations||[]).map(d => `${d.host},${d.count}`),
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `analytics_${new Date().toISOString().slice(0,16)}.csv`;
+  a.click(); toast('CSV экспортирован');
+}
+
+// ─── Scheduler ────────────────────────────────────────────────────────────────
+const TASK_TYPE_LABELS = {
+  geo_update: '🌍 Гео-базы', backup: '💾 Бэкап',
+  subscription_update: '📥 Подписки', health_check: '❤️ Health check',
+  log_rotate: '🗄️ Ротация логов',
+};
+
+async function loadScheduler() {
+  const el = document.getElementById('scheduler-list'); if (!el) return;
+  const r = await apiJ('GET', '/api/scheduler');
+  if (!r) return;
+  const tasks = r.tasks || [];
+  if (!tasks.length) {
+    el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0">Нет задач. Создайте первую задачу.</div>'; return;
+  }
+  el.innerHTML = tasks.map(t => {
+    const nxt = t.next_run_ts ? new Date(t.next_run_ts * 1000).toLocaleString('ru-RU') : '—';
+    const last = t.last_run_ts ? new Date(t.last_run_ts * 1000).toLocaleString('ru-RU') : 'никогда';
+    const resCls = t.last_result === 'ok' ? 'text-green' : t.last_result === 'error' ? 'text-red' : '';
+    return `<div class="vpn-server-card ${!t.enabled ? 'disabled-server' : ''}">
+      <div class="vpn-server-header">
+        <div class="vpn-server-name">${TASK_TYPE_LABELS[t.type]||t.type}: ${escHtml(t.name)}</div>
+        <span class="badge badge-gray" style="font-size:11px">${escHtml(t.schedule)}</span>
+      </div>
+      <div class="vpn-server-meta">Следующий: ${nxt} · Последний: ${last}
+        ${t.last_result ? ` · <span class="${resCls}">${escHtml(t.last_result)}</span>` : ''}
+        ${t.last_error ? ` <span class="text-red" style="font-size:11px">${escHtml(t.last_error.slice(0,60))}</span>` : ''}</div>
+      <div class="vpn-actions">
+        <button class="btn btn-primary btn-sm" onclick="runTaskNow('${t.id}', this)">▶ Запустить</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleTask('${t.id}', ${!t.enabled})">${t.enabled ? '⏸ Выкл' : '▶ Вкл'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showCreateTask() {
+  document.getElementById('task-create-card').style.display = 'block';
+}
+function cancelCreateTask() {
+  document.getElementById('task-create-card').style.display = 'none';
+}
+
+async function createTask() {
+  const name = document.getElementById('task-name').value.trim();
+  const type = document.getElementById('task-type').value;
+  const schedule = document.getElementById('task-schedule').value;
+  if (!name) { toast('Введите название', false); return; }
+  const r = await apiJ('POST', '/api/scheduler', { name, type, schedule });
+  if (r?.ok) { cancelCreateTask(); loadScheduler(); toast('Задача создана'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function runTaskNow(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  const r = await apiJ('POST', `/api/scheduler/${id}/run`);
+  if (btn) { btn.disabled = false; btn.textContent = '▶ Запустить'; }
+  if (r) {
+    toast(`${r.result}: ${r.detail || '—'}`, r.result === 'ok'); loadScheduler();
+  }
+}
+
+async function toggleTask(id, enable) {
+  const r = await apiJ('PATCH', `/api/scheduler/${id}`, { enabled: enable });
+  if (r?.ok) { loadScheduler(); toast(enable ? 'Включено' : 'Выключено'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function deleteTask(id) {
+  if (!confirm('Удалить задачу?')) return;
+  const r = await apiJ('DELETE', `/api/scheduler/${id}`);
+  if (r?.ok) { loadScheduler(); toast('Задача удалена'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+// ─── Updates ─────────────────────────────────────────────────────────────────
+async function checkUpdates() {
+  const btn = document.getElementById('check-updates-btn');
+  const el  = document.getElementById('updates-content');
+  btn.disabled = true; btn.textContent = '⏳ Проверка…';
+  el.innerHTML = '<div class="text-muted">Запрашиваем GitHub releases API…</div>';
+  const r = await apiJ('GET', '/api/updates/check');
+  btn.disabled = false; btn.textContent = '🔍 Проверить обновления';
+  if (!r) return;
+  renderUpdatesContent(r);
+}
+
+async function loadCachedUpdates() {
+  const r = await apiJ('GET', '/api/updates/cached');
+  if (r && (r.xray || r.gateway)) renderUpdatesContent(r);
+}
+
+function renderUpdatesContent(r) {
+  const el = document.getElementById('updates-content'); if (!el) return;
+  function compCard(title, info) {
+    if (!info) return '';
+    const avail = info.update_available;
+    const badge = avail
+      ? `<span class="badge badge-yellow">↑ ${escHtml(info.latest)}</span>`
+      : `<span class="badge badge-green">✓ Актуально</span>`;
+    const updateBtn = avail && title === 'xray-core'
+      ? `<button class="btn btn-primary btn-sm" onclick="doUpdateXray('${escHtml(info.latest||'')}')">⬆ Обновить до v${escHtml(info.latest||'')}</button>`
+      : '';
+    const notes = info.release_notes
+      ? `<details><summary style="cursor:pointer;font-size:12px;color:var(--muted)">Release notes</summary><pre style="font-size:11px;color:var(--muted);white-space:pre-wrap;margin-top:6px">${escHtml(info.release_notes.slice(0,500))}</pre></details>`
+      : '';
+    return `<div class="vpn-server-card" style="margin-bottom:10px">
+      <div class="vpn-server-header">
+        <div class="vpn-server-name">${escHtml(title)}</div> ${badge}
+      </div>
+      <div class="vpn-server-meta">Текущая: v${escHtml(info.current||'?')}
+        ${avail ? ` · Доступна: v${escHtml(info.latest||'?')}` : ''}</div>
+      ${notes}
+      <div class="vpn-actions" style="margin-top:8px">${updateBtn}</div>
+      ${info.error ? `<div style="color:var(--red);font-size:11px;margin-top:4px">⚠ ${escHtml(info.error)}</div>` : ''}
+    </div>`;
+  }
+  el.innerHTML = compCard('gateway', r.gateway) + compCard('xray-core', r.xray);
+}
+
+async function doUpdateXray(tag) {
+  if (!confirm(`Обновить xray-core до v${tag}?\n\nПеред обновлением будет создан снапшот. При ошибке можно откатиться через раздел «Настройки».`)) return;
+  const r = await apiJ('POST', '/api/updates/xray-core');
+  if (r?.ok) {
+    toast(`xray-core обновлён: ${r.message}`); loadUpdateHistory(); checkUpdates();
+  } else {
+    toast(`Ошибка обновления: ${r?.error || '?'}`, false);
+  }
+}
+
+async function loadUpdateHistory() {
+  const el = document.getElementById('update-history-list'); if (!el) return;
+  const r = await apiJ('GET', '/api/updates/history');
+  if (!r) return;
+  const hist = r.history || [];
+  if (!hist.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px">Нет истории обновлений</div>'; return; }
+  el.innerHTML = hist.map(h => {
+    const ts  = new Date(h.ts * 1000).toLocaleString('ru-RU');
+    const cls = h.status === 'ok' ? 'text-green' : h.status === 'error' ? 'text-red' : 'text-muted';
+    return `<div class="alert-log-item"><span class="alert-log-ts">${ts}</span>
+      <span class="alert-log-evt">${escHtml(h.component)}</span>
+      <span class="${cls}">${escHtml(h.from_version||'?')} → ${escHtml(h.to_version||'?')} (${escHtml(h.status)})</span>
+      ${h.detail ? `<span class="alert-log-det"> — ${escHtml(h.detail)}</span>` : ''}
     </div>`;
   }).join('');
 }
