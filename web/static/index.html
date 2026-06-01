@@ -354,6 +354,7 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
     <div class="nav-bottom">
       <button class="btn btn-secondary btn-sm" style="width:100%" onclick="doLogout()">
         Выйти</button>
+      <div id="nav-version" style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)"></div>
     </div>
   </nav>
 
@@ -760,6 +761,28 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
         <button class="btn btn-danger" onclick="factoryReset()">
           ⚠️ Сбросить настройки</button>
       </div>
+
+      <div class="card">
+        <div class="card-title">О системе</div>
+        <div class="info-row">
+          <span class="info-key">xray-gateway</span>
+          <span id="about-gw-ver" class="info-val monospace">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">xray-core</span>
+          <span id="about-xray-ver" class="info-val monospace">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Гео-базы обновлены</span>
+          <span id="about-geo-date" class="info-val">—</span>
+        </div>
+        <div class="info-row" style="border:none">
+          <span class="info-key">GitHub</span>
+          <a href="https://github.com/bkaganovich-stack/xray-gateway" target="_blank"
+             class="info-val" style="color:var(--accent);font-size:13px">
+            bkaganovich-stack/xray-gateway</a>
+        </div>
+      </div>
     </div>
 
     <!-- ── TERMINAL ──────────────────────────────────────────────────────── -->
@@ -873,6 +896,7 @@ function showPage(name, linkEl) {
 
   if (name === 'logs') { loadLogs(); if (currentLogTab === 'connections') loadConnections(); }
   if (name === 'geo') loadGeoInfo();
+  if (name === 'settings') loadAbout();
   if (name === 'system') startSysinfoStream(); else stopSysinfoStream();
   if (name === 'terminal') { termInit(); } else { /* leave terminal running in background */ }
 }
@@ -898,6 +922,8 @@ async function refreshStatus() {
   document.getElementById('s-gw').textContent = d.gateway_ip || '—';
   document.getElementById('s-profile').textContent = PROFILE_LABELS[d.profile] || d.profile;
   document.getElementById('s-geo').textContent = d.geo_updated || 'Никогда';
+  const geoAbout = document.getElementById('about-geo-date');
+  if (geoAbout) geoAbout.textContent = d.geo_updated || 'Никогда';
   document.getElementById('s-server').textContent =
     d.vpn ? `${d.vpn.protocol} · ${d.vpn.server}:${d.vpn.port}` : '';
   currentProfile = d.profile;
@@ -932,8 +958,32 @@ async function refreshStatus() {
 
 function startUpdates() {
   refreshStatus();
+  loadAbout();
   window._statusInterval = setInterval(refreshStatus, 5000);
   startSpeedStream();
+}
+
+// ─── About / version ─────────────────────────────────────────────────────────
+async function loadAbout() {
+  const r = await apiJ('GET', '/api/version');
+  if (!r) return;
+  const gwVer = 'v' + r.version;
+  const xrayVer = r.xray_core ? 'v' + r.xray_core : '—';
+  // nav sidebar
+  const nav = document.getElementById('nav-version');
+  if (nav) nav.textContent = 'xray-gateway ' + gwVer;
+  // settings page cards
+  const gwEl = document.getElementById('about-gw-ver');
+  if (gwEl) gwEl.textContent = gwVer;
+  const xrayEl = document.getElementById('about-xray-ver');
+  if (xrayEl) xrayEl.textContent = xrayVer;
+}
+
+async function refreshAboutGeoDate() {
+  const s = await apiJ('GET', '/api/status');
+  if (!s) return;
+  const el = document.getElementById('about-geo-date');
+  if (el) el.textContent = s.geo_updated || 'Никогда';
 }
 function stopUpdates() {
   clearInterval(window._statusInterval);

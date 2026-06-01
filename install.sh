@@ -272,8 +272,12 @@ systemctl enable xray-proxy xray-web
 
 # ── 15. Weekly geo update cron ────────────────────────────────────────────────
 step "Setting up weekly geo update"
-echo "0 3 * * 0 root /opt/xray-proxy/scripts/update-geo.sh && systemctl restart xray-proxy" \
-    > /etc/cron.d/xray-geo-update
+cat > /etc/cron.d/xray-geo-update <<'CRON'
+# xray-gateway: weekly geo database update (geoip.dat + geosite.dat)
+# Runs every Sunday at 03:00 UTC
+0 3 * * 0 root /opt/xray-proxy/scripts/update-geo.sh >> /var/log/xray-geo-update.log 2>&1 && systemctl restart xray-proxy
+CRON
+chmod 644 /etc/cron.d/xray-geo-update
 
 # ── 16. Start services ────────────────────────────────────────────────────────
 step "Starting services"

@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+VERSION = "1.3.0"
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -406,6 +408,20 @@ def parse_access_log_line(line: str) -> Optional[dict]:
         "outbound": outbound,
     }
 
+def get_xray_core_version() -> str:
+    """Return xray-core version string, cached after first call."""
+    if not hasattr(get_xray_core_version, "_cache"):
+        try:
+            r = subprocess.run([str(BASE / "bin" / "xray"), "version"],
+                               capture_output=True, text=True, timeout=5)
+            # First line: "Xray 26.3.27 (Xray, Penetrates Everything.) ..."
+            first = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
+            m = re.search(r"Xray\s+([\d.]+)", first)
+            get_xray_core_version._cache = m.group(1) if m else first[:40] or "?"
+        except Exception:
+            get_xray_core_version._cache = "?"
+    return get_xray_core_version._cache
+
 def get_xray_state() -> str:
     r = subprocess.run(["systemctl", "is-active", "xray-proxy"],
                        capture_output=True, text=True)
@@ -457,6 +473,10 @@ async def logout(resp: Response):
 @app.get("/api/auth-check")
 async def auth_check(u: str = Depends(auth_dep)):
     return {"ok": True, "user": u}
+
+@app.get("/api/version")
+async def get_version(u: str = Depends(auth_dep)):
+    return {"version": VERSION, "xray_core": get_xray_core_version()}
 
 # ── Status ────────────────────────────────────────────────────────────────────
 @app.get("/api/status")
