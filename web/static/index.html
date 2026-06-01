@@ -1037,9 +1037,9 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
           </table>
         </div>
         <p class="text-muted" style="font-size:11px;margin-top:12px">
-          ↑ <strong>Как глобальный</strong> — устройство следует общему профилю из раздела «Профиль маршрутов» &nbsp;·&nbsp;
-          🟢 <strong>Напрямую</strong> / 🔵 <strong>Через VPN</strong> — переопределяют глобальный для этого устройства &nbsp;·&nbsp;
-          ⚡ цветная метка «Действует» означает явное переопределение
+          ↑ <strong>Следует глобальному</strong> — при смене глобального профиля устройство автоматически следует ему &nbsp;·&nbsp;
+          остальные варианты — явное переопределение для конкретного устройства, глобальный профиль игнорируется &nbsp;·&nbsp;
+          ⚡ цветная метка «Действует» — признак явного переопределения
         </p>
       </div>
     </div>
@@ -2146,19 +2146,18 @@ async function loadDevices() {
     const stateClass = d.state === 'REACHABLE' ? 'badge-green'
                      : d.state === 'OFFLINE'   ? 'badge-red' : 'badge-gray';
 
-    // Dropdown: the "inherit" option says "↑ Как глобальный (Всё кроме РФ)"
-    const inheritOptionLabel = `↑ Как глобальный (${_currentGlobalLabel})`;
+    // Dropdown: "inherit" = follow global (auto-tracks global changes)
+    // "all" (Весь VPN) removed — identical to always_vpn for per-device use
     const policyDropdown = `
       <select class="dev-policy-select" data-key="${escHtml(d.key)}"
           onchange="saveDevicePolicy(this)"
           style="background:var(--bg);border:1px solid var(--border);
           color:var(--text);border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer">
-        <option value="inherit"       ${d.policy==='inherit'      ?'selected':''}>${inheritOptionLabel}</option>
+        <option value="inherit"       ${d.policy==='inherit'      ?'selected':''}>↑ Следует глобальному</option>
         <option value="always_direct" ${d.policy==='always_direct'?'selected':''}>🟢 Напрямую</option>
         <option value="always_vpn"    ${d.policy==='always_vpn'   ?'selected':''}>🔵 Через VPN</option>
         <option value="all_except_ru" ${d.policy==='all_except_ru'?'selected':''}>🌐 Всё кроме РФ</option>
         <option value="blocked_only"  ${d.policy==='blocked_only' ?'selected':''}>🇷🇺 Только заблок.</option>
-        <option value="all"           ${d.policy==='all'          ?'selected':''}>🔒 Весь VPN</option>
       </select>
       <div style="font-size:11px;margin-top:4px;color:${effectiveColor}">
         ${isOverride ? '⚡&nbsp;Действует:' : '↑&nbsp;Действует:'} <strong>${escHtml(effectiveLabel)}</strong>
