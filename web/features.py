@@ -549,16 +549,35 @@ _ACCESS_LOG_RE = re.compile(
 )
 
 
+_INITIAL_LOOKBACK = 10 * 1024 * 1024   # 10 MB — enough for ~24h of typical traffic
+_READ_CHUNK       =  4 * 1024 * 1024   # 4 MB per iteration
+
 def ingest_access_log(log_path: Path, retention_days: int = 30) -> int:
-    """Parse new lines from access.log since last checkpoint. Returns lines ingested."""
+    """Parse new lines from access.log since last checkpoint. Returns lines ingested.
+
+    On first run (offset=0) we skip to the last _INITIAL_LOOKBACK bytes so
+    recent data appears in analytics immediately, without replaying the entire
+    multi-hundred-MB history.
+    """
     if not log_path.exists():
         return 0
     current_size = log_path.stat().st_size
     saved_offset, saved_size = _db.get_log_checkpoint()
 
-    # If file rotated (size smaller than saved), reset
+    # File rotated (current size < last known size) → reset to beginning
     if current_size < saved_size:
         saved_offset = 0
+
+    # First run (offset==0): jump near the end so recent data is available fast.
+    # We skip to max(0, current_size - INITIAL_LOOKBACK).
+    if saved_offset == 0 and current_size > _INITIAL_LOOKBACK:
+        saved_offset = current_size - _INITIAL_LOOKBACK
+        # Align to next newline to avoid splitting a log entry
+        with open(str(log_path), "rb") as f:
+            f.seek(saved_offset)
+            nl = f.read(512).find(b"\n")
+            if nl >= 0:
+                saved_offset += nl + 1
 
     if saved_offset >= current_size:
         return 0
@@ -566,7 +585,7 @@ def ingest_access_log(log_path: Path, retention_days: int = 30) -> int:
     count = 0
     with open(str(log_path), "rb") as f:
         f.seek(saved_offset)
-        data = f.read(4 * 1024 * 1024)  # read max 4 MB at a time
+        data = f.read(_READ_CHUNK)
 
     new_offset = saved_offset + len(data)
     text = data.decode("utf-8", errors="replace")
