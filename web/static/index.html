@@ -1037,9 +1037,9 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
           </table>
         </div>
         <p class="text-muted" style="font-size:11px;margin-top:12px">
-          <strong>inherit</strong> — использовать глобальный профиль &nbsp;·&nbsp;
-          <strong>always_direct</strong> — весь трафик напрямую &nbsp;·&nbsp;
-          <strong>always_vpn</strong> — весь трафик через VPN
+          ↑ <strong>Как глобальный</strong> — устройство следует общему профилю из раздела «Профиль маршрутов» &nbsp;·&nbsp;
+          🟢 <strong>Напрямую</strong> / 🔵 <strong>Через VPN</strong> — переопределяют глобальный для этого устройства &nbsp;·&nbsp;
+          ⚡ цветная метка «Действует» означает явное переопределение
         </p>
       </div>
     </div>
@@ -2078,40 +2078,100 @@ async function deleteKey() {
 }
 
 // ─── Device Policies ─────────────────────────────────────────────────────────
+// Full human-readable labels for each policy value
+const POLICY_FULL_LABELS = {
+  inherit:       'Как глобальный',
+  always_direct: 'Напрямую',
+  always_vpn:    'Через VPN',
+  all_except_ru: 'Всё кроме РФ',
+  blocked_only:  'Только заблокированное',
+  all:           'Весь трафик через VPN',
+};
+
+// Currently loaded global profile (updated each loadDevices call)
+let _currentGlobalProfile = 'all_except_ru';
+let _currentGlobalLabel   = 'Всё кроме РФ';
+
 async function loadDevices() {
   const tbody = document.getElementById('dev-tbody');
   if (!tbody) return;
-  const r = await apiJ('GET', '/api/devices');
+
+  // Fetch devices and global status in parallel
+  const [r, s] = await Promise.all([
+    apiJ('GET', '/api/devices'),
+    apiJ('GET', '/api/status'),
+  ]);
   if (!r) return;
-  // Update global profile label
-  const s = await apiJ('GET', '/api/status');
+
+  // Capture global profile for use in row rendering
+  _currentGlobalProfile = s?.profile || 'all_except_ru';
+  _currentGlobalLabel   = POLICY_FULL_LABELS[_currentGlobalProfile] || _currentGlobalProfile;
+
+  // Update header chip
   const gpEl = document.getElementById('dev-global-profile');
-  if (gpEl && s) gpEl.textContent = s.profile || '—';
+  if (gpEl) gpEl.textContent = _currentGlobalLabel;
 
   const devs = r.devices || [];
   if (!devs.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted)">Нет устройств в ARP-таблице</td></tr>';
     return;
   }
+
   tbody.innerHTML = devs.map(d => {
-    const ips = (d.ips || []).join(', ') || '—';
+    const ips        = (d.ips || []).join(', ') || '—';
+    const isOverride = d.policy !== 'inherit';
+
+    // What actually routes traffic for this device
+    const effectiveProfile = isOverride ? d.policy : _currentGlobalProfile;
+    const effectiveLabel   = isOverride
+      ? (POLICY_FULL_LABELS[d.policy] || d.policy)
+      : _currentGlobalLabel;
+
+    // Colour of the "Действует:" sub-label:
+    //   grey  = using global (nothing special set)
+    //   blue  = VPN override
+    //   green = direct override
+    //   yellow/orange = custom profile override
+    const effectiveColor =
+      !isOverride        ? 'var(--muted)' :
+      d.policy === 'always_direct' ? 'var(--green)' :
+      d.policy === 'always_vpn'    ? 'var(--accent)' :
+      d.policy === 'all'           ? 'var(--red)' : 'var(--yellow)';
+
     const nameHtml = `<input class="dev-name-input" value="${escHtml(d.name||'')}"
       placeholder="Имя" data-key="${escHtml(d.key)}"
-      onblur="saveDeviceName(this)" onkeydown="if(event.key==='Enter')this.blur()" style="max-width:120px">`;
-    const stateClass = d.state === 'REACHABLE' ? 'badge-green' : d.state === 'OFFLINE' ? 'badge-red' : 'badge-gray';
-    const policyHtml = `<select class="dev-policy-select" data-key="${escHtml(d.key)}"
-        onchange="saveDevicePolicy(this)" style="background:var(--bg);border:1px solid var(--border);
-        color:var(--text);border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer">
-      ${['inherit','always_direct','always_vpn','all_except_ru','blocked_only','all'].map(p =>
-        `<option value="${p}" ${d.policy===p?'selected':''}>${POLICY_LABELS[p]||p}</option>`
-      ).join('')}
-    </select>`;
+      onblur="saveDeviceName(this)" onkeydown="if(event.key==='Enter')this.blur()"
+      style="max-width:130px">`;
+
+    const stateClass = d.state === 'REACHABLE' ? 'badge-green'
+                     : d.state === 'OFFLINE'   ? 'badge-red' : 'badge-gray';
+
+    // Dropdown: the "inherit" option says "↑ Как глобальный (Всё кроме РФ)"
+    const inheritOptionLabel = `↑ Как глобальный (${_currentGlobalLabel})`;
+    const policyDropdown = `
+      <select class="dev-policy-select" data-key="${escHtml(d.key)}"
+          onchange="saveDevicePolicy(this)"
+          style="background:var(--bg);border:1px solid var(--border);
+          color:var(--text);border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer">
+        <option value="inherit"       ${d.policy==='inherit'      ?'selected':''}>${inheritOptionLabel}</option>
+        <option value="always_direct" ${d.policy==='always_direct'?'selected':''}>🟢 Напрямую</option>
+        <option value="always_vpn"    ${d.policy==='always_vpn'   ?'selected':''}>🔵 Через VPN</option>
+        <option value="all_except_ru" ${d.policy==='all_except_ru'?'selected':''}>🌐 Всё кроме РФ</option>
+        <option value="blocked_only"  ${d.policy==='blocked_only' ?'selected':''}>🇷🇺 Только заблок.</option>
+        <option value="all"           ${d.policy==='all'          ?'selected':''}>🔒 Весь VPN</option>
+      </select>
+      <div style="font-size:11px;margin-top:4px;color:${effectiveColor}">
+        ${isOverride ? '⚡&nbsp;Действует:' : '↑&nbsp;Действует:'} <strong>${escHtml(effectiveLabel)}</strong>
+      </div>`;
+
     return `<tr>
-      <td><div style="font-size:12px;font-family:monospace;color:var(--muted)">${escHtml(ips)}</div>
-          ${nameHtml}</td>
+      <td>
+        <div style="font-size:11px;font-family:monospace;color:var(--muted);margin-bottom:3px">${escHtml(ips)}</div>
+        ${nameHtml}
+      </td>
       <td class="dev-mac">${escHtml(d.mac||'—')}</td>
       <td><span class="badge ${stateClass}" style="font-size:11px">${escHtml(d.state)}</span></td>
-      <td>${policyHtml}</td>
+      <td>${policyDropdown}</td>
       <td><button class="btn btn-danger" style="padding:3px 7px;font-size:11px"
           onclick="deleteDevice('${escHtml(d.key)}')">✕</button></td>
     </tr>`;
@@ -2128,8 +2188,14 @@ async function saveDevicePolicy(select) {
   const key    = select.dataset.key;
   const policy = select.value;
   const r = await apiJ('POST', `/api/devices/${encodeURIComponent(key)}/policy`, { policy });
-  if (r?.ok) toast(`Политика «${POLICY_LABELS[policy]||policy}» применена`);
-  else { toast(r?.error || 'Ошибка', false); loadDevices(); }
+  if (r?.ok) {
+    const effectiveLabel = policy === 'inherit'
+      ? `Как глобальный (${_currentGlobalLabel})`
+      : (POLICY_FULL_LABELS[policy] || policy);
+    toast(`Действует: ${effectiveLabel}`);
+  } else {
+    toast(r?.error || 'Ошибка', false); loadDevices();
+  }
 }
 
 async function deleteDevice(key) {
