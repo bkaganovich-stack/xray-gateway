@@ -221,6 +221,72 @@ input[type="file"] { display: none; }
 .file-drop:hover { border-color: var(--accent); color: var(--text); }
 code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 12px; }
 
+/* ── VPN Servers ── */
+.vpn-server-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+                   padding: 14px 16px; margin-bottom: 10px; }
+.vpn-server-card.active-server { border-color: var(--green); }
+.vpn-server-card.disabled-server { opacity: 0.55; }
+.vpn-server-header { display: flex; align-items: center; gap: 10px; }
+.vpn-server-name { font-size: 14px; font-weight: 600; flex: 1; }
+.vpn-server-meta { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: monospace; }
+.vpn-status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.vpn-status-dot.ok      { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.vpn-status-dot.error   { background: var(--red); }
+.vpn-status-dot.unknown { background: var(--muted); }
+.vpn-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ── DNS Panel ── */
+.dns-upstream-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.dns-upstream-row  { display: flex; gap: 8px; align-items: center; }
+.dns-upstream-row input { flex: 1; }
+.dns-local-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.dns-local-table th { color: var(--muted); font-size: 11px; text-transform: uppercase;
+                      padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+.dns-local-table td { padding: 6px 8px; border-bottom: 1px solid rgba(45,49,72,0.4); }
+.dns-status-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+                   padding: 3px 8px; border-radius: 6px; background: var(--bg3); }
+
+/* ── Explain modal ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+                 z-index: 500; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+             padding: 24px; max-width: 560px; width: calc(100% - 32px); max-height: 90vh;
+             overflow-y: auto; }
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.explain-row { display: flex; gap: 12px; padding: 8px 0;
+               border-bottom: 1px solid var(--border); font-size: 13px; }
+.explain-row:last-child { border-bottom: none; }
+.explain-key  { color: var(--muted); width: 130px; flex-shrink: 0; }
+.explain-val  { flex: 1; font-family: 'SF Mono', monospace; word-break: break-all; }
+.rule-badge   { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px;
+               font-family: 'SF Mono', monospace; }
+.rule-badge.system   { background: rgba(251,191,36,0.15); color: var(--yellow); }
+.rule-badge.custom   { background: rgba(108,142,245,0.15); color: var(--accent); }
+.rule-badge.device   { background: rgba(52,211,153,0.15); color: var(--green); }
+.rule-badge.geo      { background: rgba(100,116,139,0.15); color: var(--muted); }
+.rule-badge.fallback { background: rgba(248,113,113,0.15); color: var(--red); }
+
+/* ── Alerts ── */
+.alert-events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0; }
+.alert-event-cb { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;
+                  padding: 6px 8px; border-radius: 6px; }
+.alert-event-cb:hover { background: var(--bg3); }
+.alert-log-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.alert-log-item:last-child { border-bottom: none; }
+.alert-log-ts  { color: var(--muted); font-family: monospace; }
+.alert-log-evt { font-weight: 600; margin: 0 8px; }
+.alert-log-det { color: var(--muted); }
+
+/* ── Policy badge ── */
+.policy-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.policy-inherit   { background: rgba(100,116,139,0.15); color: var(--muted); }
+.policy-direct    { background: rgba(52,211,153,0.15); color: var(--green); }
+.policy-vpn       { background: rgba(108,142,245,0.15); color: var(--accent); }
+.policy-all_except_ru { background: rgba(251,191,36,0.12); color: var(--yellow); }
+.policy-blocked_only  { background: rgba(251,146,60,0.12); color: var(--orange); }
+.policy-all           { background: rgba(248,113,113,0.12); color: var(--red); }
+
 /* ── Route tester ── */
 .route-result { border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 13px; }
 .route-result.direct { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); }
@@ -391,13 +457,15 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       <div class="nav-link active" onclick="showPage('dashboard',this)">
         <span class="ico">📊</span> Панель управления</div>
       <div class="nav-link" onclick="showPage('vpn',this)">
-        <span class="ico">🔑</span> VPN ключ</div>
+        <span class="ico">🔑</span> VPN серверы</div>
       <div class="nav-link" onclick="showPage('profile',this)">
         <span class="ico">🗺️</span> Профиль маршрутов</div>
       <div class="nav-link" onclick="showPage('rules',this)">
         <span class="ico">📝</span> Правила</div>
       <div class="nav-link" onclick="showPage('devices',this)">
         <span class="ico">📡</span> Устройства</div>
+      <div class="nav-link" onclick="showPage('dns',this)">
+        <span class="ico">🔍</span> DNS</div>
       <div class="nav-link" onclick="showPage('geo',this)">
         <span class="ico">🌍</span> Гео-базы</div>
       <hr class="nav-sep">
@@ -408,6 +476,8 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       <div class="nav-link" onclick="showPage('router',this)">
         <span class="ico">🌐</span> Настройка роутера</div>
       <hr class="nav-sep">
+      <div class="nav-link" onclick="showPage('alerts',this)">
+        <span class="ico">🔔</span> Уведомления</div>
       <div class="nav-link" onclick="showPage('settings',this)">
         <span class="ico">⚙️</span> Настройки</div>
       <div class="nav-link" onclick="showPage('terminal',this)" id="nav-terminal">
@@ -468,26 +538,35 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
       </div>
     </div>
 
-    <!-- ── VPN KEY ────────────────────────────────────────────────────────── -->
+    <!-- ── VPN SERVERS ──────────────────────────────────────────────────── -->
     <div id="page-vpn" class="page">
-      <h2>VPN ключ</h2>
-      <p class="page-desc">Вставьте ключ из буфера обмена или загрузите файл конфигурации</p>
+      <h2>VPN серверы</h2>
+      <p class="page-desc">Управление VPN-серверами. Активный сервер используется для маршрутизации.</p>
 
       <div class="card">
-        <div class="card-title">Текущий ключ</div>
-        <div id="cur-key-info" class="info-row" style="border:none;padding:0 0 12px 0"></div>
-        <hr class="sep">
-        <div class="field"><label>Вставить ключ (ss://, vless://, vmess://, trojan://)</label>
-          <textarea id="key-input" placeholder="ss://… или vless://… или vmess://… или trojan://…"
-                    rows="4"></textarea></div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="pasteKey()">📋 Вставить из буфера</button>
-          <button class="btn btn-primary" onclick="applyKey()">✓ Применить ключ</button>
-          <label class="btn btn-secondary" for="key-file">📁 Загрузить файл</label>
-          <input type="file" id="key-file" accept=".json,.txt,.conf" onchange="loadKeyFile(this)">
-          <button class="btn btn-danger" onclick="deleteKey()">✕ Удалить ключ</button>
+        <div class="card-title">Серверы</div>
+        <div id="vpn-servers-list">
+          <div class="text-muted" style="font-size:13px;padding:8px 0">Загрузка…</div>
         </div>
-        <div id="key-result" class="mt-4" style="display:none"></div>
+        <div class="mt-4">
+          <button class="btn btn-secondary btn-sm" onclick="loadVpnServers()">🔄 Обновить</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Добавить сервер</div>
+        <div class="field"><label>Ключ подключения (ss://, vless://, vmess://, trojan://)</label>
+          <textarea id="vpn-add-key" placeholder="ss://… или vless://… или vmess://… или trojan://…"
+                    rows="3"></textarea></div>
+        <div class="field"><label>Имя (опционально)</label>
+          <input id="vpn-add-name" type="text" placeholder="Мой сервер"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addVpnServer()">➕ Добавить</button>
+          <button class="btn btn-secondary" onclick="pasteVpnKey()">📋 Из буфера</button>
+          <label class="btn btn-secondary" for="vpn-key-file">📁 Файл</label>
+          <input type="file" id="vpn-key-file" accept=".json,.txt,.conf" onchange="loadVpnKeyFile(this)">
+        </div>
+        <div id="vpn-add-result" class="mt-4" style="display:none"></div>
       </div>
     </div>
 
@@ -630,6 +709,7 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
                 <th class="col-dst">Назначение</th>
                 <th class="col-proto">Прот.</th>
                 <th class="col-route">Маршрут</th>
+                <th style="width:36px"></th>
               </tr>
             </thead>
             <tbody id="conn-tbody">
@@ -930,27 +1010,157 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
     <!-- ── DEVICES ───────────────────────────────────────────────────────── -->
     <div id="page-devices" class="page">
       <h2>Устройства</h2>
-      <p class="page-desc">LAN-клиенты из ARP-таблицы. Нажмите на имя для редактирования.</p>
+      <p class="page-desc">LAN-клиенты из ARP-таблицы. Политика устройства переопределяет глобальный профиль.</p>
 
       <div class="card">
         <div class="btn-row" style="margin-bottom:12px">
           <button class="btn btn-secondary btn-sm" onclick="loadDevices()">🔄 Обновить</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:8px">
+            Текущий профиль: <span id="dev-global-profile" class="text-green">—</span>
+          </span>
         </div>
-        <div id="dev-table-wrap">
+        <div style="overflow-x:auto">
           <table class="dev-table">
             <thead>
               <tr>
-                <th>IP-адрес</th>
+                <th>IP / Имя</th>
                 <th>MAC</th>
                 <th>Состояние</th>
-                <th>Имя устройства</th>
+                <th>Политика</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="dev-tbody">
-              <tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">
+              <tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted)">
                 Загрузка…</td></tr>
             </tbody>
           </table>
+        </div>
+        <p class="text-muted" style="font-size:11px;margin-top:12px">
+          <strong>inherit</strong> — использовать глобальный профиль &nbsp;·&nbsp;
+          <strong>always_direct</strong> — весь трафик напрямую &nbsp;·&nbsp;
+          <strong>always_vpn</strong> — весь трафик через VPN
+        </p>
+      </div>
+    </div>
+
+    <!-- ── DNS ──────────────────────────────────────────────────────────── -->
+    <div id="page-dns" class="page">
+      <h2>DNS</h2>
+      <p class="page-desc">Управление dnsmasq: upstream, split-DNS, локальные записи, кэш</p>
+
+      <div class="card">
+        <div class="card-title">Статус DNS</div>
+        <div id="dns-status-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px"></div>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-sm" onclick="loadDnsStatus()">🔄 Обновить статус</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Тест DNS-запроса</div>
+        <div style="display:flex;gap:8px">
+          <input id="dns-test-input" type="text" placeholder="ozon.ru, google.com…"
+                 style="flex:1" onkeydown="if(event.key==='Enter')runDnsTest()">
+          <button class="btn btn-primary" onclick="runDnsTest()" id="dns-test-btn">Проверить</button>
+        </div>
+        <div id="dns-test-result"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Upstream DNS серверы</div>
+        <p class="text-muted" style="font-size:12px;margin-bottom:8px">Основные DNS серверы для всех запросов</p>
+        <div id="dns-upstream-list" class="dns-upstream-list"></div>
+        <div class="rule-add-row">
+          <input id="dns-upstream-input" type="text" placeholder="8.8.8.8 или 192.168.50.1"
+                 onkeydown="if(event.key==='Enter')addDnsUpstream('main')">
+          <button class="btn btn-secondary btn-sm" onclick="addDnsUpstream('main')">+ Добавить</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Split-DNS: российские домены / .local</div>
+        <p class="text-muted" style="font-size:12px;margin-bottom:8px">
+          Если задан — .ru и .local домены резолвятся через этот upstream (например, роутер провайдера)</p>
+        <div id="dns-ru-upstream-list" class="dns-upstream-list"></div>
+        <div class="rule-add-row">
+          <input id="dns-ru-input" type="text" placeholder="192.168.50.1"
+                 onkeydown="if(event.key==='Enter')addDnsUpstream('ru')">
+          <button class="btn btn-secondary btn-sm" onclick="addDnsUpstream('ru')">+ Добавить</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Локальные DNS-записи</div>
+        <table class="dns-local-table">
+          <thead><tr><th>Hostname</th><th>IP</th><th></th></tr></thead>
+          <tbody id="dns-local-tbody">
+            <tr><td colspan="3" style="padding:12px;color:var(--muted)">Нет записей</td></tr>
+          </tbody>
+        </table>
+        <div class="rule-add-row" style="margin-top:10px">
+          <input id="dns-local-host" type="text" placeholder="mydevice.local" style="flex:1">
+          <input id="dns-local-ip"   type="text" placeholder="192.168.50.5"   style="flex:1">
+          <button class="btn btn-secondary btn-sm" onclick="addDnsLocal()">+ Добавить</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Кэш</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="font-size:13px;color:var(--muted)">Размер кэша (записей):</label>
+          <input id="dns-cache-size" type="number" min="0" max="10000" value="1000"
+                 style="width:100px">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveDns()">✓ Применить настройки DNS</button>
+        <span id="dns-result" class="text-muted" style="font-size:13px"></span>
+      </div>
+    </div>
+
+    <!-- ── ALERTS ───────────────────────────────────────────────────────── -->
+    <div id="page-alerts" class="page">
+      <h2>Уведомления</h2>
+      <p class="page-desc">Webhook-алерты при важных событиях</p>
+
+      <div class="card">
+        <div class="card-title">Настройки</div>
+        <div class="override-row" style="border:none;margin:0;padding:8px 0 14px 0">
+          <div class="override-label">Включить уведомления</div>
+          <label class="toggle">
+            <input type="checkbox" id="alerts-enabled" onchange="alertsChanged()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field">
+          <label>Webhook URL</label>
+          <input id="alerts-webhook" type="text" placeholder="https://hooks.slack.com/… или https://api.telegram.org/…">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">URL хранится на сервере в зашифрованном виде. В UI не отображается.</div>
+        </div>
+        <div class="field">
+          <label>Cooldown между повторными алертами (минуты)</label>
+          <input id="alerts-cooldown" type="number" min="1" max="1440" value="30" style="width:100px">
+        </div>
+        <div class="field">
+          <label>Отслеживать события</label>
+          <div class="alert-events-grid" id="alerts-events-grid"></div>
+        </div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn btn-primary" onclick="saveAlerts()">✓ Сохранить</button>
+          <button class="btn btn-secondary" onclick="testAlert()">📤 Тест</button>
+          <span id="alerts-result" class="text-muted" style="font-size:13px"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Журнал событий</div>
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn btn-secondary btn-sm" onclick="loadAlertLog()">🔄 Обновить</button>
+        </div>
+        <div id="alert-log-list">
+          <div class="text-muted" style="font-size:13px">Нет событий</div>
         </div>
       </div>
     </div>
@@ -969,6 +1179,19 @@ code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family
     </div>
 
   </main>
+</div>
+
+<!-- Explain Connection Modal -->
+<div id="explain-modal" class="modal-overlay" onclick="if(event.target===this)closeExplain()">
+  <div class="modal-box">
+    <div class="modal-title">🔍 Объяснение маршрута</div>
+    <div id="explain-content">
+      <div class="text-muted" style="text-align:center;padding:20px">Загрузка…</div>
+    </div>
+    <div style="margin-top:16px;text-align:right">
+      <button class="btn btn-secondary btn-sm" onclick="closeExplain()">Закрыть</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -1069,6 +1292,9 @@ function showPage(name, linkEl) {
   if (name === 'settings') { loadAbout(); loadSnapshots(); }
   if (name === 'rules') loadRules();
   if (name === 'devices') loadDevices();
+  if (name === 'vpn') loadVpnServers();
+  if (name === 'dns') { loadDnsSettings(); loadDnsStatus(); }
+  if (name === 'alerts') { loadAlertsConfig(); loadAlertLog(); }
   if (name === 'system') startSysinfoStream(); else stopSysinfoStream();
   if (name === 'terminal') { termInit(); } else { /* leave terminal running in background */ }
 }
@@ -1283,31 +1509,7 @@ function updateSysNetUI(net) {
   if (txBar) txBar.style.width = (tx / sysinfoSpeedMax.tx * 100) + '%';
 }
 
-// ─── VPN Key ────────────────────────────────────────────────────────────────
-async function pasteKey() {
-  try {
-    const text = await navigator.clipboard.readText();
-    document.getElementById('key-input').value = text.trim();
-  } catch {
-    toast('Не удалось прочитать буфер обмена. Вставьте вручную (Ctrl+V / Cmd+V).', false);
-  }
-}
-
-async function applyKey() {
-  const key = document.getElementById('key-input').value.trim();
-  if (!key) { toast('Введите ключ', false); return; }
-  const r = await apiJ('POST', '/api/vpn-key', { key });
-  const box = document.getElementById('key-result');
-  box.style.display = 'block';
-  if (r && r.ok) {
-    box.innerHTML = `<span class="text-green">✓ Ключ применён: ${r.vpn.protocol} · ${r.vpn.name}</span>`;
-    toast('VPN ключ применён'); refreshStatus();
-  } else {
-    box.innerHTML = `<span class="text-red">✕ ${r?.error || 'Ошибка'}</span>`;
-    toast(r?.error || 'Ошибка', false);
-  }
-}
-
+// ─── VPN Key (legacy stub — redirects to VPN Servers page) ──────────────────
 function loadKeyFile(input) {
   const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -1315,24 +1517,17 @@ function loadKeyFile(input) {
     let text = e.target.result.trim();
     try {
       const j = JSON.parse(text);
-      if (j.method && j.password && j.server && j.server_port) {
+      if (j.method && j.password && j.server && j.server_port)
         text = `ss://${btoa(j.method+':'+j.password)}@${j.server}:${j.server_port}`;
-      } else if (j.servers) {
+      else if (j.servers) {
         const s = j.servers[0];
         text = `ss://${btoa(s.method+':'+s.password)}@${s.server}:${s.server_port}`;
       }
     } catch {}
-    document.getElementById('key-input').value = text;
-    toast('Файл загружен. Нажмите «Применить ключ».');
+    const el = document.getElementById('vpn-add-key');
+    if (el) { el.value = text; toast('Файл загружен'); }
   };
-  reader.readAsText(file);
-  input.value = '';
-}
-
-async function deleteKey() {
-  if (!confirm('Удалить VPN ключ?')) return;
-  const r = await apiJ('DELETE', '/api/vpn-key');
-  if (r?.ok) { toast('Ключ удалён'); refreshStatus(); }
+  reader.readAsText(file); input.value = '';
 }
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
@@ -1661,38 +1856,6 @@ async function restoreSnapshot(id) {
   }
 }
 
-// ─── Devices ──────────────────────────────────────────────────────────────────
-async function loadDevices() {
-  const tbody = document.getElementById('dev-tbody');
-  if (!tbody) return;
-  const r = await apiJ('GET', '/api/devices');
-  if (!r) return;
-  const devs = r.devices || [];
-  if (!devs.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">Устройства не найдены</td></tr>';
-    return;
-  }
-  tbody.innerHTML = devs.map(d => `
-    <tr>
-      <td class="monospace">${escHtml(d.ip)}</td>
-      <td class="dev-mac">${escHtml(d.mac || '—')}</td>
-      <td><span class="badge ${d.state==='REACHABLE'?'badge-green':'badge-gray'}" style="font-size:11px">${escHtml(d.state)}</span></td>
-      <td><input class="dev-name-input" value="${escHtml(d.name||'')}" placeholder="Имя устройства"
-           data-ip="${escHtml(d.ip)}"
-           onblur="saveDeviceName(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
-    </tr>`).join('');
-}
-
-async function saveDeviceName(input) {
-  const ip   = input.dataset.ip;
-  const name = input.value.trim();
-  const r = await apiJ('POST', `/api/devices/${encodeURIComponent(ip)}/name`, { name });
-  if (r?.ok) {
-    toast(`${ip} → "${name || 'без имени'}"`);
-  } else {
-    toast('Не удалось сохранить имя', false);
-  }
-}
 
 // ─── Connection table: search, filter, export, stats ─────────────────────────
 let _allConns = [];
@@ -1743,18 +1906,21 @@ function renderConns() {
   if (countEl) countEl.textContent = `${filtered.length} соединений${filtered.length > 200 ? ' (показаны первые 200)' : ''}`;
 
   if (!visible.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Нет соединений</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Нет соединений</td></tr>';
     return;
   }
   tbody.innerHTML = visible.map(c => {
     const cls = c.outbound === 'proxy' ? 'route-proxy' : c.outbound === 'block' ? 'route-block' : 'route-direct';
     const lbl = c.outbound === 'proxy' ? 'VPN' : c.outbound === 'block' ? 'Block' : 'Direct';
+    const connJson = escHtml(JSON.stringify(c));
     return `<tr>
       <td class="col-time">${c.ts.split(' ')[1]||c.ts}</td>
       <td class="col-src">${escHtml(c.src)}</td>
       <td class="col-dst" title="${escHtml(c.dst)}:${c.dport}">${escHtml(c.dst)}<span class="text-muted">:${c.dport}</span></td>
       <td class="col-proto">${c.proto}</td>
       <td class="col-route"><span class="${cls}">${lbl}</span></td>
+      <td><button title="Объяснить маршрут" onclick='openExplain(${connJson})'
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 4px">🔍</button></td>
     </tr>`;
   }).join('');
 }
@@ -1780,6 +1946,443 @@ function exportConnCSV() {
   a.download = `connections_${new Date().toISOString().slice(0,16)}.csv`;
   a.click();
   toast('CSV экспортирован');
+}
+
+// ─── VPN Servers ─────────────────────────────────────────────────────────────
+const POLICY_LABELS = {
+  inherit: 'Глобальный', blocked_only: 'Только заблок.', all_except_ru: 'Всё кроме РФ',
+  all: 'Весь VPN', always_direct: 'Напрямую', always_vpn: 'Через VPN',
+};
+const POLICY_CSS = {
+  inherit:'policy-inherit', always_direct:'policy-direct', always_vpn:'policy-vpn',
+  all_except_ru:'policy-all_except_ru', blocked_only:'policy-blocked_only', all:'policy-all',
+};
+
+async function loadVpnServers() {
+  const r = await apiJ('GET', '/api/vpn-servers');
+  if (!r) return;
+  const el = document.getElementById('vpn-servers-list');
+  if (!el) return;
+  const servers = r.servers || [];
+  if (!servers.length) {
+    el.innerHTML = '<div class="text-muted" style="padding:8px 0;font-size:13px">Нет серверов. Добавьте первый VPN-ключ ниже.</div>';
+    return;
+  }
+  el.innerHTML = servers.map(s => {
+    const statusClass = s.last_status === 'ok' ? 'ok' : s.last_status === 'error' ? 'error' : 'unknown';
+    const activeBadge = s.is_active ? '<span class="badge badge-green" style="font-size:11px">Активный</span>' : '';
+    const lat = s.latency_ms != null ? `${s.latency_ms} ms` : '—';
+    const checked = s.last_checked ? new Date(s.last_checked).toLocaleTimeString('ru-RU') : 'никогда';
+    return `<div class="vpn-server-card ${s.is_active ? 'active-server' : ''} ${!s.enabled ? 'disabled-server' : ''}">
+      <div class="vpn-server-header">
+        <div class="vpn-status-dot ${statusClass}"></div>
+        <div class="vpn-server-name">${escHtml(s.name)} ${activeBadge}</div>
+        <span class="badge ${s.enabled ? 'badge-green' : 'badge-gray'}" style="font-size:10px">
+          ${s.enabled ? 'Вкл' : 'Выкл'}</span>
+      </div>
+      <div class="vpn-server-meta">${escHtml(s.protocol)} · ${escHtml(s.server)}:${s.port}
+        · приоритет: ${s.priority} · ping: ${lat} · проверен: ${checked}</div>
+      <div class="vpn-actions">
+        ${!s.is_active ? `<button class="btn btn-primary btn-sm" onclick="activateVpn('${s.id}')">▶ Активировать</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="checkVpn('${s.id}', this)">📡 Проверить</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleVpn('${s.id}', ${!s.enabled})">${s.enabled ? '⏸ Выключить' : '▶ Включить'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteVpn('${s.id}')">✕ Удалить</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addVpnServer() {
+  const key  = document.getElementById('vpn-add-key').value.trim();
+  const name = document.getElementById('vpn-add-name').value.trim();
+  const box  = document.getElementById('vpn-add-result');
+  box.style.display = 'block'; box.innerHTML = '<span class="text-muted">…</span>';
+  if (!key) { box.innerHTML = '<span class="text-red">Введите ключ</span>'; return; }
+  const r = await apiJ('POST', '/api/vpn-servers', { key, name });
+  if (r?.ok) {
+    box.innerHTML = '<span class="text-green">✓ Сервер добавлен</span>';
+    document.getElementById('vpn-add-key').value = '';
+    document.getElementById('vpn-add-name').value = '';
+    loadVpnServers(); refreshStatus(); toast('VPN сервер добавлен');
+  } else {
+    box.innerHTML = `<span class="text-red">✕ ${escHtml(r?.error || 'Ошибка')}</span>`;
+    toast(r?.error || 'Ошибка', false);
+  }
+}
+
+async function activateVpn(id) {
+  const r = await apiJ('POST', `/api/vpn-servers/${id}/activate`);
+  if (r?.ok) { toast('Сервер активирован'); loadVpnServers(); refreshStatus(); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function checkVpn(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  const r = await apiJ('POST', `/api/vpn-servers/${id}/check`);
+  if (btn) { btn.disabled = false; btn.textContent = '📡 Проверить'; }
+  if (r?.ok) {
+    const msg = r.reachable ? `✓ Доступен, ${r.latency_ms} ms` : '✕ Недоступен';
+    toast(msg, r.reachable); loadVpnServers();
+  } else toast(r?.error || 'Ошибка', false);
+}
+
+async function toggleVpn(id, enable) {
+  const r = await apiJ('PATCH', `/api/vpn-servers/${id}`, { enabled: enable });
+  if (r?.ok) { loadVpnServers(); toast(enable ? 'Сервер включён' : 'Сервер выключен'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function deleteVpn(id) {
+  if (!confirm('Удалить VPN сервер?')) return;
+  const r = await apiJ('DELETE', `/api/vpn-servers/${id}`);
+  if (r?.ok) { loadVpnServers(); refreshStatus(); toast('Сервер удалён'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+async function pasteVpnKey() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('vpn-add-key').value = text.trim();
+  } catch { toast('Вставьте вручную (Ctrl+V / Cmd+V)', false); }
+}
+
+function loadVpnKeyFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let text = e.target.result.trim();
+    try {
+      const j = JSON.parse(text);
+      if (j.method && j.password && j.server)
+        text = `ss://${btoa(j.method+':'+j.password)}@${j.server}:${j.server_port}`;
+    } catch {}
+    document.getElementById('vpn-add-key').value = text;
+    toast('Файл загружен');
+  };
+  reader.readAsText(file); input.value = '';
+}
+
+// Legacy key management (kept for compatibility — updates first server)
+async function pasteKey() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('vpn-add-key').value = text.trim();
+    showPage('vpn', document.querySelector('[onclick*="showPage(\'vpn\'"]'));
+  } catch { toast('Вставьте вручную', false); }
+}
+async function applyKey() { addVpnServer(); }
+async function deleteKey() {
+  if (!confirm('Удалить все VPN серверы?')) return;
+  const r = await apiJ('DELETE', '/api/vpn-key');
+  if (r?.ok) { loadVpnServers(); refreshStatus(); toast('VPN ключ удалён'); }
+}
+
+// ─── Device Policies ─────────────────────────────────────────────────────────
+async function loadDevices() {
+  const tbody = document.getElementById('dev-tbody');
+  if (!tbody) return;
+  const r = await apiJ('GET', '/api/devices');
+  if (!r) return;
+  // Update global profile label
+  const s = await apiJ('GET', '/api/status');
+  const gpEl = document.getElementById('dev-global-profile');
+  if (gpEl && s) gpEl.textContent = s.profile || '—';
+
+  const devs = r.devices || [];
+  if (!devs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted)">Нет устройств в ARP-таблице</td></tr>';
+    return;
+  }
+  tbody.innerHTML = devs.map(d => {
+    const ips = (d.ips || []).join(', ') || '—';
+    const nameHtml = `<input class="dev-name-input" value="${escHtml(d.name||'')}"
+      placeholder="Имя" data-key="${escHtml(d.key)}"
+      onblur="saveDeviceName(this)" onkeydown="if(event.key==='Enter')this.blur()" style="max-width:120px">`;
+    const stateClass = d.state === 'REACHABLE' ? 'badge-green' : d.state === 'OFFLINE' ? 'badge-red' : 'badge-gray';
+    const policyHtml = `<select class="dev-policy-select" data-key="${escHtml(d.key)}"
+        onchange="saveDevicePolicy(this)" style="background:var(--bg);border:1px solid var(--border);
+        color:var(--text);border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer">
+      ${['inherit','always_direct','always_vpn','all_except_ru','blocked_only','all'].map(p =>
+        `<option value="${p}" ${d.policy===p?'selected':''}>${POLICY_LABELS[p]||p}</option>`
+      ).join('')}
+    </select>`;
+    return `<tr>
+      <td><div style="font-size:12px;font-family:monospace;color:var(--muted)">${escHtml(ips)}</div>
+          ${nameHtml}</td>
+      <td class="dev-mac">${escHtml(d.mac||'—')}</td>
+      <td><span class="badge ${stateClass}" style="font-size:11px">${escHtml(d.state)}</span></td>
+      <td>${policyHtml}</td>
+      <td><button class="btn btn-danger" style="padding:3px 7px;font-size:11px"
+          onclick="deleteDevice('${escHtml(d.key)}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveDeviceName(input) {
+  const key = input.dataset.key; const name = input.value.trim();
+  const r = await apiJ('POST', `/api/devices/${encodeURIComponent(key)}/name`, { name });
+  if (!r?.ok) toast('Ошибка сохранения имени', false);
+}
+
+async function saveDevicePolicy(select) {
+  const key    = select.dataset.key;
+  const policy = select.value;
+  const r = await apiJ('POST', `/api/devices/${encodeURIComponent(key)}/policy`, { policy });
+  if (r?.ok) toast(`Политика «${POLICY_LABELS[policy]||policy}» применена`);
+  else { toast(r?.error || 'Ошибка', false); loadDevices(); }
+}
+
+async function deleteDevice(key) {
+  const r = await apiJ('DELETE', `/api/devices/${encodeURIComponent(key)}`);
+  if (r?.ok) { loadDevices(); toast('Устройство удалено'); }
+  else toast(r?.error || 'Ошибка', false);
+}
+
+// ─── DNS Panel ────────────────────────────────────────────────────────────────
+let _dnsData = { upstream: ['192.168.50.1'], upstream_ru: [], cache_size: 1000, local_records: [] };
+
+async function loadDnsSettings() {
+  const r = await apiJ('GET', '/api/dns');
+  if (!r) return;
+  _dnsData = r;
+  renderDnsUpstreamList('main', r.upstream || []);
+  renderDnsUpstreamList('ru', r.upstream_ru || []);
+  document.getElementById('dns-cache-size').value = r.cache_size ?? 1000;
+  renderDnsLocalRecords(r.local_records || []);
+}
+
+function renderDnsUpstreamList(type, list) {
+  const id = type === 'main' ? 'dns-upstream-list' : 'dns-ru-upstream-list';
+  const el = document.getElementById(id); if (!el) return;
+  if (!list.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Нет серверов</div>'; return; }
+  el.innerHTML = list.map((ip, i) => `
+    <div class="dns-upstream-row">
+      <input type="text" value="${escHtml(ip)}" data-idx="${i}" data-type="${type}"
+             onchange="updateDnsUpstream(this)" style="flex:1;font-family:monospace">
+      <button class="r-del" onclick="removeDnsUpstream('${type}',${i})">×</button>
+    </div>`).join('');
+}
+
+function addDnsUpstream(type) {
+  const inputId = type === 'main' ? 'dns-upstream-input' : 'dns-ru-input';
+  const val = document.getElementById(inputId).value.trim();
+  if (!val) return;
+  if (type === 'main') _dnsData.upstream.push(val);
+  else _dnsData.upstream_ru.push(val);
+  renderDnsUpstreamList(type, type === 'main' ? _dnsData.upstream : _dnsData.upstream_ru);
+  document.getElementById(inputId).value = '';
+}
+
+function removeDnsUpstream(type, idx) {
+  if (type === 'main') _dnsData.upstream.splice(idx, 1);
+  else _dnsData.upstream_ru.splice(idx, 1);
+  renderDnsUpstreamList(type, type === 'main' ? _dnsData.upstream : _dnsData.upstream_ru);
+}
+
+function updateDnsUpstream(input) {
+  const type = input.dataset.type; const idx = parseInt(input.dataset.idx);
+  if (type === 'main') _dnsData.upstream[idx] = input.value.trim();
+  else _dnsData.upstream_ru[idx] = input.value.trim();
+}
+
+function renderDnsLocalRecords(recs) {
+  const tbody = document.getElementById('dns-local-tbody'); if (!tbody) return;
+  if (!recs.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:12px;color:var(--muted)">Нет записей</td></tr>'; return;
+  }
+  tbody.innerHTML = recs.map((rec, i) => `<tr>
+    <td class="monospace">${escHtml(rec.hostname)}</td>
+    <td class="monospace">${escHtml(rec.ip)}</td>
+    <td><button class="r-del" onclick="removeDnsLocal(${i})">×</button></td>
+  </tr>`).join('');
+}
+
+function addDnsLocal() {
+  const h = document.getElementById('dns-local-host').value.trim();
+  const ip = document.getElementById('dns-local-ip').value.trim();
+  if (!h || !ip) return;
+  _dnsData.local_records = _dnsData.local_records || [];
+  _dnsData.local_records.push({ hostname: h, ip });
+  renderDnsLocalRecords(_dnsData.local_records);
+  document.getElementById('dns-local-host').value = '';
+  document.getElementById('dns-local-ip').value = '';
+}
+
+function removeDnsLocal(idx) {
+  _dnsData.local_records.splice(idx, 1);
+  renderDnsLocalRecords(_dnsData.local_records);
+}
+
+async function saveDns() {
+  const res = document.getElementById('dns-result');
+  res.textContent = 'Сохранение…'; res.className = 'text-muted';
+  const payload = {
+    upstream:      _dnsData.upstream,
+    upstream_ru:   _dnsData.upstream_ru,
+    cache_size:    parseInt(document.getElementById('dns-cache-size').value) || 1000,
+    local_records: _dnsData.local_records || [],
+  };
+  const r = await apiJ('PUT', '/api/dns', payload);
+  if (r?.ok) {
+    res.textContent = '✓ Применено'; res.className = 'text-green';
+    toast('DNS настройки применены'); loadDnsStatus();
+  } else {
+    res.textContent = '✕ ' + escHtml(r?.error || 'Ошибка'); res.className = 'text-red';
+    toast(r?.error || 'Ошибка DNS', false);
+  }
+  setTimeout(() => res.textContent = '', 5000);
+}
+
+async function loadDnsStatus() {
+  const el = document.getElementById('dns-status-row'); if (!el) return;
+  const r = await apiJ('GET', '/api/dns/status');
+  if (!r) return;
+  const dnsOk = r.dnsmasq === 'active';
+  let html = `<div class="dns-status-chip">
+    <span class="dot ${dnsOk ? 'dot-green' : 'dot-red'}"></span>
+    dnsmasq: ${r.dnsmasq || '—'}</div>`;
+  (r.upstreams || []).forEach(u => {
+    const cls = u.reachable ? 'dot-green' : 'dot-red';
+    html += `<div class="dns-status-chip"><span class="dot ${cls}"></span>
+      ${escHtml(u.ip)} ${u.reachable ? u.latency_ms+'ms' : 'недост.'}</div>`;
+  });
+  el.innerHTML = html;
+}
+
+async function runDnsTest() {
+  const inp = document.getElementById('dns-test-input');
+  const btn = document.getElementById('dns-test-btn');
+  const out = document.getElementById('dns-test-result');
+  const domain = inp.value.trim(); if (!domain) return;
+  btn.disabled = true; btn.textContent = '…'; out.innerHTML = '';
+  const r = await apiJ('POST', '/api/dns/test', { target: domain });
+  btn.disabled = false; btn.textContent = 'Проверить';
+  if (!r) return;
+  if (r.error) {
+    out.innerHTML = `<div class="route-result error"><div class="r-out">✕ Ошибка DNS</div>
+      <div class="r-rule">${escHtml(r.error)}</div></div>`; return;
+  }
+  const routeCls = r.route === 'direct' ? 'direct' : 'proxy';
+  out.innerHTML = `<div class="route-result ${routeCls}">
+    <div class="r-out">${escHtml(domain)}</div>
+    <div class="r-rule">IPs: <strong>${r.ips.join(', ') || '—'}</strong> · ${r.elapsed_ms} мс</div>
+    <div class="r-rule">Маршрут: <strong>${r.route||'—'}</strong> · правило: ${escHtml(r.matched_rule||'—')}</div>
+  </div>`;
+}
+
+// ─── Explain Connection ───────────────────────────────────────────────────────
+function openExplain(conn) {
+  document.getElementById('explain-modal').classList.add('show');
+  document.getElementById('explain-content').innerHTML =
+    '<div class="text-muted" style="text-align:center;padding:20px">Загрузка…</div>';
+  apiJ('POST', '/api/explain-connection', {
+    src_ip: conn.src.replace(/:\d+$/, ''), dst: conn.dst,
+    dst_port: conn.dport, proto: conn.proto, outbound: conn.outbound
+  }).then(r => {
+    if (!r) return;
+    const srcLabel = r.src_name ? `${r.src_name} (${r.src_ip})` : r.src_ip;
+    const ruleSrc = r.rule_source || 'unknown';
+    const badgeCls = ruleSrc.includes('custom') ? 'custom'
+                   : ruleSrc.includes('device') ? 'device'
+                   : ruleSrc.includes('geo')    ? 'geo'
+                   : ruleSrc.includes('system') ? 'system' : 'fallback';
+    document.getElementById('explain-content').innerHTML = [
+      row('Источник', srcLabel + (r.src_mac ? ` · ${r.src_mac}` : '')),
+      row('Политика уст-ва', r.device_policy || 'inherit'),
+      row('Назначение', `${r.dst}:${r.dst_port}`),
+      row('Протокол', r.proto),
+      row('Маршрут', `<span class="${r.outbound==='proxy'?'route-proxy':'route-direct'}" style="font-weight:600">${r.outbound==='proxy'?'🔵 VPN':'🟢 Direct'}</span>`),
+      row('Правило', `<span class="rule-badge ${badgeCls}">${escHtml(r.matched_rule||'—')}</span>`),
+      row('Источник правила', escHtml(r.rule_source || '—')),
+      row('Примечание', escHtml(r.note || '—')),
+      row('Страна', r.country || '—'),
+    ].join('');
+  });
+}
+function row(k, v) {
+  return `<div class="explain-row"><div class="explain-key">${k}</div><div class="explain-val">${v}</div></div>`;
+}
+function closeExplain() {
+  document.getElementById('explain-modal').classList.remove('show');
+}
+
+// ─── Alerts ───────────────────────────────────────────────────────────────────
+const ALERT_EVENT_LABELS = {
+  vpn_down: 'VPN недоступен', config_rollback: 'Откат конфигурации',
+  geo_update_failed: 'Ошибка обновления гео-баз', disk_high: 'Диск заполнен >90%',
+  all_vpn_unavailable: 'Все VPN серверы недоступны', login_failed: 'Неудачный вход (5+)',
+  failover_executed: 'Выполнен failover', dns_upstream_unhealthy: 'DNS upstream недоступен',
+};
+let _alertsData = {};
+
+async function loadAlertsConfig() {
+  const r = await apiJ('GET', '/api/alerts/config');
+  if (!r) return;
+  _alertsData = r;
+  const enEl = document.getElementById('alerts-enabled');
+  if (enEl) enEl.checked = !!r.enabled;
+  const cdEl = document.getElementById('alerts-cooldown');
+  if (cdEl) cdEl.value = r.cooldown_min ?? 30;
+  // Render events grid
+  const grid = document.getElementById('alerts-events-grid');
+  if (grid) {
+    const active = new Set(r.events || []);
+    grid.innerHTML = Object.entries(ALERT_EVENT_LABELS).map(([k, label]) =>
+      `<label class="alert-event-cb">
+        <input type="checkbox" value="${k}" ${active.has(k)?'checked':''}>
+        <span>${escHtml(label)}</span>
+      </label>`).join('');
+  }
+  // Show masked URL hint
+  const wh = document.getElementById('alerts-webhook');
+  if (wh && r.webhook_url_masked) wh.placeholder = `Текущий: ${r.webhook_url_masked} (введите новый для замены)`;
+}
+
+function alertsChanged() {}  // placeholder for future reactive updates
+
+async function saveAlerts() {
+  const res = document.getElementById('alerts-result');
+  res.textContent = 'Сохранение…'; res.className = 'text-muted';
+  const enabled   = document.getElementById('alerts-enabled')?.checked ?? false;
+  const webhookEl = document.getElementById('alerts-webhook');
+  const webhook   = webhookEl?.value.trim() || '';
+  const cooldown  = parseInt(document.getElementById('alerts-cooldown')?.value) || 30;
+  const events    = [...document.querySelectorAll('#alerts-events-grid input:checked')]
+                    .map(cb => cb.value);
+  const r = await apiJ('PUT', '/api/alerts/config',
+    { enabled, webhook_url: webhook, events, cooldown_min: cooldown });
+  if (r?.ok) {
+    res.textContent = '✓ Сохранено'; res.className = 'text-green';
+    if (webhookEl) webhookEl.value = '';
+    toast('Настройки уведомлений сохранены');
+  } else {
+    res.textContent = '✕ ' + escHtml(r?.error || 'Ошибка'); res.className = 'text-red';
+    toast(r?.error || 'Ошибка', false);
+  }
+  setTimeout(() => res.textContent = '', 4000);
+}
+
+async function testAlert() {
+  const r = await apiJ('POST', '/api/alerts/test');
+  if (r?.ok) toast('Тестовый алерт отправлен');
+  else toast(r?.error || 'Ошибка отправки', false);
+}
+
+async function loadAlertLog() {
+  const el = document.getElementById('alert-log-list'); if (!el) return;
+  const r = await apiJ('GET', '/api/alerts/log');
+  if (!r) return;
+  const events = r.events || [];
+  if (!events.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px">Нет событий</div>'; return; }
+  el.innerHTML = events.map(e => {
+    const ts = new Date(e.ts).toLocaleString('ru-RU');
+    const lbl = ALERT_EVENT_LABELS[e.event] || e.event;
+    return `<div class="alert-log-item">
+      <span class="alert-log-ts">${ts}</span>
+      <span class="alert-log-evt">${escHtml(lbl)}</span>
+      <span class="alert-log-det">${escHtml(e.detail||'')}</span>
+    </div>`;
+  }).join('');
 }
 
 // ─── Apple CDN override ───────────────────────────────────────────────────────
