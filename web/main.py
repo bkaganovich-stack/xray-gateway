@@ -2461,6 +2461,37 @@ async def update_xray_core(u: str = Depends(auth_dep)):
 async def get_update_history(u: str = Depends(auth_dep)):
     return {"history": _db.list_update_history(limit=20)}
 
+# ── Favicon ───────────────────────────────────────────────────────────────────
+# Shield (blue) + two routing arrows (white → VPN, green ← Direct)
+# Matches UI accent colors: --accent #6c8ef5, --green #34d399, --bg #0f1117
+_FAVICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+    '<rect width="200" height="200" rx="40" fill="#0f1117"/>'
+    '<path d="M100 18L172 46L172 110C172 150 142 175 100 188C58 175 28 150 28 110L28 46Z"'
+    ' fill="#6c8ef5"/>'
+    '<path d="M100 18L172 46L172 76L28 76L28 46Z" fill="#ffffff" opacity="0.1"/>'
+    '<line x1="54" y1="90" x2="130" y2="90" stroke="#ffffff" stroke-width="14"'
+    ' stroke-linecap="round"/>'
+    '<polyline points="116,76 132,90 116,104" stroke="#ffffff" stroke-width="14"'
+    ' fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+    '<line x1="146" y1="128" x2="70" y2="128" stroke="#34d399" stroke-width="14"'
+    ' stroke-linecap="round"/>'
+    '<polyline points="84,114 68,128 84,142" stroke="#34d399" stroke-width="14"'
+    ' fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+    '</svg>'
+)
+
+@app.get("/favicon.svg")
+async def favicon_svg():
+    return Response(_FAVICON_SVG, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+@app.get("/favicon.ico")
+async def favicon_ico():
+    # Modern browsers accept SVG for .ico; serves the same asset
+    return Response(_FAVICON_SVG, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
 # ── SPA ────────────────────────────────────────────────────────────────────────
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
