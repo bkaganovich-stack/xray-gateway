@@ -1546,16 +1546,6 @@ async function refreshStatus() {
   const tog = document.getElementById('aaplimg-toggle');
   if (tog) tog.checked = d.force_aaplimg_vpn !== false;
 
-  // Key info on vpn page
-  const ki = document.getElementById('cur-key-info');
-  if (d.vpn) {
-    ki.innerHTML = `<span class="info-key">Активный ключ</span>
-      <span class="info-val"><span class="badge badge-green">${d.vpn.protocol}</span>
-      &nbsp;${d.vpn.name}</span>`;
-  } else {
-    ki.innerHTML = '<span class="text-muted">Ключ не задан</span>';
-  }
-
   // Router guide dynamic IPs
   const gw = d.gateway_ip || '';
   if (gw && gw !== '?') {
