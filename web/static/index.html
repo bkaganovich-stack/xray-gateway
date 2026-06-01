@@ -3034,9 +3034,13 @@ function renderUpdatesContent(r) {
   function compCard(title, info) {
     if (!info) return '';
     const avail = info.update_available;
+    // Only show "Актуально" when check actually succeeded (latest is known, no error)
+    const checkOk = info.latest != null && !info.error;
     const badge = avail
-      ? `<span class="badge badge-yellow">↑ ${escHtml(info.latest)}</span>`
-      : `<span class="badge badge-green">✓ Актуально</span>`;
+      ? `<span class="badge badge-yellow">↑ v${escHtml(info.latest)}</span>`
+      : checkOk
+        ? `<span class="badge badge-green">✓ Актуально</span>`
+        : `<span class="badge badge-gray">? Не проверено</span>`;
     const updateBtn = avail && title === 'xray-core'
       ? `<button class="btn btn-primary btn-sm" onclick="doUpdateXray('${escHtml(info.latest||'')}')">⬆ Обновить до v${escHtml(info.latest||'')}</button>`
       : '';
