@@ -595,8 +595,8 @@ def build_xray_config(settings: dict) -> dict:
         }],
         "outbounds": outbounds,
         "routing": {"domainStrategy": "IPIfNonMatch", "rules": rules},
-        "stats": {},
-        "policy": {"system": {"statsInboundUplink": True, "statsInboundDownlink": True}},
+        # stats/policy removed: per-connection goroutine counters leaked file descriptors,
+        # causing "accept4: too many open files" after 3 days of operation (65535 FD exhaustion).
     }
 
 # ── DNS Config ─────────────────────────────────────────────────────────────────
@@ -886,6 +886,66 @@ async def _disk_monitor_loop() -> None:
         except Exception:
             pass
         await asyncio.sleep(3600)  # check every hour
+
+async def _xray_fd_watchdog() -> None:
+    """Monitor xray-proxy file descriptor usage and restart before exhaustion.
+
+    Root cause of Jun-04 outage: xray exhausted its 65535 FD limit after 3 days
+    of operation (high-traffic home gateway with long-lived TLS/QUIC sessions),
+    causing accept4: too many open files. Systemd did NOT restart because the
+    process was still 'active' — it just couldn't accept new connections.
+
+    This watchdog restarts xray when FD usage exceeds 80% of limit.
+    Also checks xray.log for the error signature as a fallback.
+    """
+    await asyncio.sleep(120)  # let everything start first
+    while True:
+        try:
+            # Method 1: count open FDs via /proc/<pid>/fd
+            r = subprocess.run(
+                ["systemctl", "show", "-p", "MainPID", "xray-proxy"],
+                capture_output=True, text=True)
+            pid_str = r.stdout.strip().split("=")[-1].strip()
+            if pid_str and pid_str != "0":
+                fd_dir = Path(f"/proc/{pid_str}/fd")
+                if fd_dir.exists():
+                    fd_count = len(list(fd_dir.iterdir()))
+                    # Limit is 1048576 (after fix); warn at 80% = ~838K
+                    # For safety also alert if we somehow hit old 65535 threshold
+                    fd_warn = 800_000
+                    if fd_count > fd_warn:
+                        _restart_xray_watchdog(f"FD count {fd_count} > {fd_warn}")
+                    elif fd_count > 50_000:
+                        # Approaching old limit — log but don't restart yet
+                        _log_watchdog(f"xray FD count elevated: {fd_count}")
+
+            # Method 2: check xray.log for recent FD errors (fallback)
+            xray_log = LOGS / "xray.log"
+            if xray_log.exists():
+                r2 = subprocess.run(
+                    ["tail", "-20", str(xray_log)],
+                    capture_output=True, text=True)
+                recent = r2.stdout
+                if "too many open files" in recent:
+                    _restart_xray_watchdog("xray.log: too many open files detected")
+
+        except Exception:
+            pass
+        await asyncio.sleep(300)  # check every 5 minutes
+
+def _restart_xray_watchdog(reason: str) -> None:
+    """Restart xray-proxy due to watchdog detection."""
+    fire_alert("vpn_down", f"Watchdog restart: {reason}")
+    try:
+        subprocess.run(["systemctl", "restart", "xray-proxy"], capture_output=True)
+    except Exception:
+        pass
+
+def _log_watchdog(msg: str) -> None:
+    _alert_log.append({"ts": datetime.now(timezone.utc).isoformat(),
+                        "event": "watchdog_info", "detail": msg})
+    if len(_alert_log) > ALERT_LOG_SIZE:
+        _alert_log.pop(0)
 
 # ── GeoIP / GeoSite Parsers ────────────────────────────────────────────────────
 def _varint(data: bytes, pos: int) -> tuple[int, int]:
@@ -1404,6 +1464,7 @@ async def startup_event():
     _db.init_db()
     asyncio.create_task(_failover_loop())
     asyncio.create_task(_disk_monitor_loop())
+    asyncio.create_task(_xray_fd_watchdog())
     asyncio.create_task(_scheduler_loop())
     asyncio.create_task(_analytics_loop())
 

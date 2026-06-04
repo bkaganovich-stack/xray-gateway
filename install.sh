@@ -274,10 +274,21 @@ systemctl enable xray-proxy xray-web
 step "Setting up weekly geo update"
 cat > /etc/cron.d/xray-geo-update <<'CRON'
 # xray-gateway: weekly geo database update (geoip.dat + geosite.dat)
-# Runs every Sunday at 03:00 UTC
+# Runs every Sunday at 03:00 UTC (geo update + restart clears FD accumulation)
 0 3 * * 0 root /opt/xray-proxy/scripts/update-geo.sh >> /var/log/xray-geo-update.log 2>&1 && systemctl restart xray-proxy
 CRON
 chmod 644 /etc/cron.d/xray-geo-update
+
+# ── 15b. Weekly preventive xray-proxy restart (FD exhaustion prevention) ─────
+# xray-proxy accumulates file descriptors over days of operation on a busy home
+# gateway. The weekly geo-update cron already restarts xray on Sundays.
+# On other days, add a Wednesday 03:00 restart as extra insurance.
+cat > /etc/cron.d/xray-maintenance <<'CRON'
+# xray-gateway: mid-week preventive restart to avoid FD exhaustion
+# Root cause: 65535 FD limit was exhausted after ~3 days, see Jun-04-2026 incident
+0 3 * * 3 root systemctl restart xray-proxy >> /var/log/xray-maintenance.log 2>&1
+CRON
+chmod 644 /etc/cron.d/xray-maintenance
 
 # ── 16. Start services ────────────────────────────────────────────────────────
 step "Starting services"
