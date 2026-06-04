@@ -142,6 +142,24 @@ def upsert_traffic(hour: str, src_ip: str, dst_host: str,
         """, (hour, src_ip, dst_host, outbound, proto, count))
 
 
+def upsert_traffic_batch(entries: list) -> None:
+    """Insert/update a batch of traffic rows in a single transaction.
+
+    Each entry is (hour, src_ip, dst_host, outbound, proto, count).
+    executemany commits once for the entire batch — orders of magnitude faster
+    than calling upsert_traffic() in a loop (one disk fsync per call).
+    """
+    if not entries:
+        return
+    with get_conn() as conn:
+        conn.executemany("""
+            INSERT INTO traffic_hourly (hour, src_ip, dst_host, outbound, proto, count)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(hour, src_ip, dst_host, outbound, proto)
+            DO UPDATE SET count = count + excluded.count
+        """, entries)
+
+
 def get_traffic_summary(hours: int = 24) -> dict:
     """Return aggregated traffic stats for the last N hours."""
     cutoff = time.strftime("%Y-%m-%d %H", time.gmtime(time.time() - hours * 3600))

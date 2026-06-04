@@ -609,8 +609,9 @@ def ingest_access_log(log_path: Path, retention_days: int = 30) -> int:
         count += 1
 
     if batch:
-        for (hour, src, dst, ob, pr), n in batch.items():
-            _db.upsert_traffic(hour, src, dst, ob, pr, n)
+        entries = [(hour, src, dst, ob, pr, n)
+                   for (hour, src, dst, ob, pr), n in batch.items()]
+        _db.upsert_traffic_batch(entries)
 
     _db.set_log_checkpoint(new_offset, current_size)
 
